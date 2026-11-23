@@ -763,6 +763,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.14.0 / MOBILE STUDIO</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.16.0 / EFFECTS ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
