@@ -136,6 +136,7 @@ export default function App() {
   const [example, setExample] = useState("Cinematic title");
   const [duration, setDuration] = useState(8);
   const [format, setFormat] = useState("16:9");
+  const [quality, setQuality] = useState("720p");
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
@@ -147,10 +148,14 @@ export default function App() {
   const renderRef = useRef<RenderFunction | null>(null);
   const rafRef = useRef(0);
   const startRef = useRef(0);
+  const lastFrameAtRef = useRef(0);
   const elapsedRef = useRef(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const formats: Record<string, [number, number]> = {
-    "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080], "4:5": [1080, 1350]
+    "16:9": quality === "720p" ? [1280, 720] : [1920, 1080],
+    "9:16": quality === "720p" ? [720, 1280] : [1080, 1920],
+    "1:1": quality === "720p" ? [720, 720] : [1080, 1080],
+    "4:5": quality === "720p" ? [720, 900] : [1080, 1350]
   };
   const [width, height] = formats[format];
 
@@ -206,11 +211,16 @@ export default function App() {
   useEffect(() => {
     if (!running) return;
     startRef.current = performance.now() - elapsedRef.current * 1000;
+    lastFrameAtRef.current = 0;
+    const frameInterval = 1000 / 30;
     const tick = (now: number) => {
       const next = Math.min(duration, (now - startRef.current) / 1000);
       elapsedRef.current = next;
-      setElapsed(next);
-      drawFrame(next);
+      if (next >= duration || now - lastFrameAtRef.current >= frameInterval) {
+        lastFrameAtRef.current = now;
+        setElapsed(next);
+        drawFrame(next);
+      }
       if (next >= duration) {
         setRunning(false);
         if (exporting && recorderRef.current?.state === "recording") recorderRef.current.stop();
@@ -340,6 +350,7 @@ export default function App() {
         </div>
         <div className="render-settings">
           <label>FORMAT <select value={format} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
+          <label>QUALITY <select value={quality} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
           <label>DURATION <select value={duration} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
           <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
         </div>
