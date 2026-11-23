@@ -176,7 +176,7 @@ export default function App() {
   const [webCodecsAvailable, setWebCodecsAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [projectName, setProjectName] = useState("Untitled Cinema");
+  const [projectName, setProjectName] = useState(() => { try { return localStorage.getItem("codec-2026-project-name") || "Untitled Cinema"; } catch { return "Untitled Cinema"; } });
   const projectInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
@@ -384,7 +384,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `codec-cinema.${container}`;
+      a.download = `${safeFileName(projectName)}.${container}`;
       a.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 3000);
       setRenderProgress(1);
