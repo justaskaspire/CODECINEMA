@@ -12,6 +12,10 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
 ## Features
+- Named projects with portable `.cinema.json` save/load, including script and render settings
+- Project name and script autosave locally in the browser
+- Keyboard workflow: Ctrl/Cmd+Enter to run, Ctrl/Cmd+S to save a project, Ctrl/Cmd+O to open a project, Space to play/pause, Escape to exit expanded views
+- Export filenames use the project name
 - JavaScript code editor with local autosave and Tab indentation
 - Run script with Ctrl+Enter / Cmd+Enter
 - Helpful escaped-code detection and runtime error messages
