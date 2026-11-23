@@ -1,340 +1,272 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-type Transition = "fade" | "slide" | "zoom" | "none";
-type LayerAnimation = "fade" | "rise" | "zoom" | "none";
-type TextLayer = { id: string; text: string; x: number; y: number; size: number; color: string; animation?: LayerAnimation; delay?: number };
-type Scene = { title: string; subtitle: string; duration: number; accent: string; transition: Transition; layers?: TextLayer[] };
-type Project = { version: 1 | 2 | 3; format: string; font: string; textColor: string; backgroundImage: string | null; videoBackground?: string | null; audioTrack?: string | null; scenes: Scene[] };
-const initialScenes: Scene[] = [
-  { title: "MAKE IT", subtitle: "A STORY WORTH WATCHING", duration: 4, accent: "#b5ff6d", transition: "fade" },
-  { title: "MOVE", subtitle: "BEYOND THE ORDINARY", duration: 4, accent: "#8b9cff", transition: "slide" },
-  { title: "CODECINEMA", subtitle: "YOUR IDEAS. IN MOTION.", duration: 4, accent: "#ff9b78", transition: "zoom" },
-];
-const formats: Record<string, [number, number]> = { "16:9":[1920,1080], "9:16":[1080,1920], "1:1":[1080,1080], "4:5":[1080,1350] };
-const fonts = ["Manrope", "Arial", "Georgia", "Impact", "system-ui", "monospace"];
+const starterCode = `// CODECINEMA — your video is a function of time.
+// Available: ctx (Canvas 2D), t (seconds), w (width), h (height)
+// Write normal JavaScript. This code runs once for every frame.
+
+const bg = ctx.createLinearGradient(0, 0, w, h);
+bg.addColorStop(0, "#101b2c");
+bg.addColorStop(1, "#05070d");
+ctx.fillStyle = bg;
+ctx.fillRect(0, 0, w, h);
+
+// Moving light
+const glow = ctx.createRadialGradient(
+  w * (0.72 + Math.sin(t * 0.45) * 0.08), h * 0.28, 0,
+  w * 0.72, h * 0.28, w * 0.65
+);
+glow.addColorStop(0, "rgba(181,255,109,0.22)");
+glow.addColorStop(1, "rgba(181,255,109,0)");
+ctx.fillStyle = glow;
+ctx.fillRect(0, 0, w, h);
+
+// Fine grid
+ctx.strokeStyle = "rgba(255,255,255,0.045)";
+ctx.lineWidth = 1;
+for (let x = 0; x < w; x += 48) {
+  ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+}
+for (let y = 0; y < h; y += 48) {
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+}
+
+// Animated title
+const enter = Math.min(1, t / 1.2);
+const ease = 1 - Math.pow(1 - enter, 3);
+ctx.save();
+ctx.globalAlpha = ease;
+ctx.translate(w / 2, h * 0.46 + (1 - ease) * 70);
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+ctx.fillStyle = "#f4f7fb";
+ctx.font = "800 104px Arial";
+ctx.fillText("MAKE IT", 0, 0);
+ctx.fillStyle = "#b5ff6d";
+ctx.fillRect(-54, 76, 108, 5);
+ctx.fillStyle = "#aab5c6";
+ctx.font = "500 25px Arial";
+ctx.fillText("A STORY WORTH WATCHING", 0, 132);
+ctx.restore();
+
+// Timecode-inspired footer
+ctx.fillStyle = "rgba(255,255,255,0.42)";
+ctx.font = "12px monospace";
+ctx.textAlign = "left";
+ctx.fillText("CODECINEMA / 001", 54, h - 42);
+ctx.textAlign = "right";
+ctx.fillText(t.toFixed(2) + " SEC", w - 54, h - 42);`;
+
+type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void;
 
 export default function App() {
-  const [scenes,setScenes]=useState<Scene[]>(initialScenes);
-  const [selected,setSelected]=useState(0);
-  const [playing,setPlaying]=useState(false);
-  const [format,setFormat]=useState("16:9");
-  const [font,setFont]=useState("Manrope");
-  const [textColor,setTextColor]=useState("#ffffff");
-  const [backgroundImage,setBackgroundImage]=useState<string|null>(null);
-  const [videoBackground,setVideoBackground]=useState<string|null>(null);
-  const [audioTrack,setAudioTrack]=useState<string|null>(null);
-  const [activeLayer,setActiveLayer]=useState<string|null>(null);
-  const [audioVolume,setAudioVolume]=useState(0.8);
-  const [exporting,setExporting]=useState(false);
-  const [elapsed,setElapsed]=useState(0);
-  const canvasRef=useRef<HTMLCanvasElement>(null);
-  const imageRef=useRef<HTMLImageElement|null>(null);
-  const videoRef=useRef<HTMLVideoElement>(null);
-  const audioRef=useRef<HTMLAudioElement>(null);
-  const audioContextRef=useRef<AudioContext|null>(null);
-  const audioSourceRef=useRef<MediaElementAudioSourceNode|null>(null);
-  const rafRef=useRef<number>(0);
-  const startRef=useRef(0);
-  const importRef=useRef<HTMLInputElement>(null);
-  const [width,height]=formats[format] ?? formats["16:9"];
-  const duration=useMemo(()=>scenes.reduce((sum,s)=>sum+s.duration,0),[scenes]);
-  const starts=useMemo(()=>scenes.map((_,i)=>scenes.slice(0,i).reduce((sum,s)=>sum+s.duration,0)),[scenes]);
-  const playingIndex=starts.findIndex((start,i)=>elapsed>=start && elapsed<start+scenes[i].duration);
-  const sceneIndex=playing && playingIndex>=0 ? playingIndex : selected;
-  const current=scenes[selected] ?? scenes[0];
-  const sceneLayers=current.layers??[];
-  const focusedLayer=sceneLayers.find(layer=>layer.id===activeLayer)??sceneLayers[0];
-  const sceneTime=playing ? Math.max(0,elapsed-(starts[sceneIndex]??0)) : 0;
-
-  useEffect(()=>{
-    if(!playing)return;
-    startRef.current=performance.now()-elapsed*1000;
-    const tick=(now:number)=>{
-      const next=Math.min(duration,(now-startRef.current)/1000);
-      setElapsed(next);
-      if(next>=duration){setPlaying(false);return;}
-      rafRef.current=requestAnimationFrame(tick);
-    };
-    rafRef.current=requestAnimationFrame(tick);
-    return ()=>cancelAnimationFrame(rafRef.current);
-  },[playing,duration]);
-
-  useEffect(()=>{
-    if(!backgroundImage){imageRef.current=null;return;}
-    const image=new Image();
-    image.onload=()=>{imageRef.current=image;};
-    image.src=backgroundImage;
-  },[backgroundImage]);
-
-  useEffect(()=>{
-    const video=videoRef.current;
-    if(!video)return;
-    video.pause();
-    if(videoBackground){video.src=videoBackground;video.load();}
-    else{video.removeAttribute("src");video.load();}
-  },[videoBackground]);
-
-  useEffect(()=>{
-    const video=videoRef.current;
-    if(!video||!videoBackground)return;
-    if(playing){
-      if(video.readyState>=1&&Number.isFinite(video.duration)&&video.duration>0)video.currentTime=elapsed%video.duration;
-      void video.play().catch(()=>{});
-    }else video.pause();
-  },[playing,videoBackground]);
-
-  useEffect(()=>{
-    const video=videoRef.current;
-    if(!playing&&video&&videoBackground&&video.readyState>=1&&Number.isFinite(video.duration)&&video.duration>0)video.currentTime=elapsed%video.duration;
-  },[elapsed,playing,videoBackground]);
-
-  useEffect(()=>{
-    const audio=audioRef.current;
-    if(!audio)return;
-    if(audioTrack){audio.src=audioTrack;audio.load();}
-    else{audio.pause();audio.removeAttribute("src");audio.load();}
-  },[audioTrack]);
-
-  useEffect(()=>{
-    const audio=audioRef.current;
-    if(!audio||!audioTrack)return;
-    audio.volume=audioVolume;
-    if(playing){
-      if(Number.isFinite(audio.duration)&&audio.duration>0)audio.currentTime=elapsed%audio.duration;
-      void audio.play().catch(()=>{});
-    }else audio.pause();
-  },[playing,audioTrack,audioVolume]);
-
-  useEffect(()=>{
-    const audio=audioRef.current;
-    if(!playing&&audio&&audioTrack&&Number.isFinite(audio.duration)&&audio.duration>0)audio.currentTime=elapsed%audio.duration;
-  },[elapsed,playing,audioTrack]);
-
-  useEffect(()=>{
-    const canvas=canvasRef.current;
-    if(!canvas)return;
-    canvas.width=width;canvas.height=height;
-    const ctx=canvas.getContext("2d");
-    if(!ctx)return;
-    const w=canvas.width,h=canvas.height;
-    let frame=0;
-    const draw=(now:number)=>{
-      const scene=scenes[sceneIndex]??scenes[0];
-      const localTime=playing?sceneTime:(now%4000)/1000;
-      const progress=Math.min(1,localTime/Math.max(.1,scene.duration));
-      const enter=Math.min(1,localTime/.65);
-      const eased=1-Math.pow(1-enter,3);
-      ctx.clearRect(0,0,w,h);
-      const bg=ctx.createLinearGradient(0,0,w,h);
-      bg.addColorStop(0,"#111827");bg.addColorStop(1,"#080b12");
-      ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
-      if(videoRef.current&&videoRef.current.readyState>=2&&videoRef.current.videoWidth>0){
-        const vid=videoRef.current;
-        const scale=Math.max(w/vid.videoWidth,h/vid.videoHeight);
-        const iw=vid.videoWidth*scale,ih=vid.videoHeight*scale;
-        ctx.save();ctx.globalAlpha=.72;ctx.drawImage(vid,(w-iw)/2,(h-ih)/2,iw,ih);ctx.restore();
-        ctx.fillStyle="#080b12a8";ctx.fillRect(0,0,w,h);
-      }else if(imageRef.current){
-        const img=imageRef.current;
-        const scale=Math.max(w/img.width,h/img.height);
-        const iw=img.width*scale,ih=img.height*scale;
-        ctx.save();ctx.globalAlpha=.72;ctx.drawImage(img,(w-iw)/2,(h-ih)/2,iw,ih);ctx.restore();
-        ctx.fillStyle="#080b12a8";ctx.fillRect(0,0,w,h);
-      }
-      const glow=ctx.createRadialGradient(w*.76,h*.2,0,w*.76,h*.2,Math.max(w,h)*.65);
-      glow.addColorStop(0,scene.accent+"35");glow.addColorStop(1,scene.accent+"00");
-      ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
-      ctx.strokeStyle="#ffffff12";ctx.lineWidth=Math.max(1,w/1920);
-      const grid=Math.max(30,Math.round(Math.min(w,h)/22));
-      for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
-      for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
-      const pulse=1+Math.sin(now/650)*.025;
-      ctx.save();ctx.translate(w*.5,h*.47);ctx.scale(pulse,pulse);
-      ctx.fillStyle=scene.accent;ctx.globalAlpha=.12;
-      ctx.beginPath();ctx.arc(0,0,Math.min(w,h)*.31,0,Math.PI*2);ctx.fill();ctx.restore();
-      const titleSize=Math.min(w*.105,h*.105,h>w?112:150);
-      let offsetX=0,scale=1,alpha=eased;
-      if(scene.transition==="slide")offsetX=(1-eased)*w*.18;
-      if(scene.transition==="zoom")scale=.72+eased*.28;
-      if(scene.transition==="none"){alpha=1;offsetX=0;scale=1;}
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(w/2+offsetX,h*.47+(1-eased)*24);ctx.scale(scale,scale);
-      ctx.fillStyle=textColor;ctx.textAlign="center";ctx.textBaseline="middle";
-      ctx.font=`800 ${titleSize}px ${font}, system-ui, sans-serif`;
-      ctx.fillText(scene.title.toUpperCase(),0,0,w*.84);
-      ctx.fillStyle=scene.accent;ctx.fillRect(-w*.035,h*.08,w*.07,Math.max(4,w*.003));
-      ctx.fillStyle="#dce2eb";ctx.font=`500 ${Math.max(18,w*.018)}px ${font}, system-ui, sans-serif`;
-      ctx.fillText(scene.subtitle.toUpperCase(),0,h*.16,w*.82);
-      ctx.restore();
-      for(const layer of (scenes[sceneIndex]?.layers??[])){
-        const layerTime=Math.max(0,localTime-(layer.delay??0));
-        const layerProgress=Math.min(1,layerTime/.55);
-        const layerEase=1-Math.pow(1-layerProgress,3);
-        const animation=layer.animation??"fade";
-        const layerAlpha=animation==="none"?1:layerEase;
-        const layerY=animation==="rise"?(1-layerEase)*h*.035:0;
-        const layerScale=animation==="zoom"?.78+layerEase*.22:1;
-        ctx.save();ctx.globalAlpha=layerAlpha;ctx.translate(w*layer.x/100,h*layer.y/100+layerY);ctx.scale(layerScale,layerScale);ctx.fillStyle=layer.color;ctx.textAlign="center";ctx.textBaseline="middle";
-        ctx.font=`700 ${Math.max(14,Math.min(240,layer.size*(w/1920)))}px ${font}, system-ui, sans-serif`;
-        ctx.fillText(layer.text,0,0,w*.86);ctx.restore();
-      }
-      ctx.fillStyle="#ffffff90";ctx.textAlign="center";ctx.font=`500 ${Math.max(12,w*.012)}px ${font}, system-ui, sans-serif`;
-      ctx.fillText("A CODECINEMA ORIGINAL",w/2,h*.88);
-      ctx.fillStyle="#ffffff25";ctx.fillRect(w*.08,h*.93,w*.84,Math.max(2,w*.002));
-      ctx.fillStyle=scene.accent;ctx.fillRect(w*.08,h*.93,w*.84*progress,Math.max(2,w*.002));
-      frame=requestAnimationFrame(draw);
-    };
-    frame=requestAnimationFrame(draw);
-    return ()=>cancelAnimationFrame(frame);
-  },[scenes,sceneIndex,sceneTime,playing,format,width,height,font,textColor,backgroundImage]);
-
-  const seekToScene=(index:number)=>{
-    setPlaying(false);setSelected(index);setElapsed(starts[index]??0);
+  const [code, setCode] = useState(starterCode);
+  const [duration, setDuration] = useState(8);
+  const [format, setFormat] = useState("16:9");
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("READY");
+  const [exporting, setExporting] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const codeRef = useRef(code);
+  const renderRef = useRef<RenderFunction | null>(null);
+  const rafRef = useRef(0);
+  const startRef = useRef(0);
+  const elapsedRef = useRef(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const formats: Record<string, [number, number]> = {
+    "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080], "4:5": [1080, 1350]
   };
-  const addScene=()=>{
-    const next=[...scenes,{title:"NEW SCENE",subtitle:"WRITE YOUR NEXT LINE",duration:4,accent:"#d7a6ff",transition:"fade" as Transition}];
-    setScenes(next);setSelected(next.length-1);setPlaying(false);
-    setElapsed(next.slice(0,-1).reduce((sum,s)=>sum+s.duration,0));
-  };
-  const update=(key:"title"|"subtitle"|"duration"|"accent"|"transition",value:string)=>{
-    setScenes(old=>old.map((s,i)=>i===selected?{...s,[key]:key==="duration"?Math.max(1,Math.min(30,Number(value)||1)):value}:s));
-  };
-  const addTextLayer=()=>{
-    const layer:TextLayer={id:`layer-${Date.now()}`,text:"YOUR TEXT",x:50,y:72,size:64,color:"#ffffff",animation:"rise",delay:0};
-    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:[...(scene.layers??[]),layer]}:scene));setActiveLayer(layer.id);
-  };
-  const updateTextLayer=(key:keyof Omit<TextLayer,"id">,value:string)=>{
-    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).map(layer=>layer.id===focusedLayer?.id?{...layer,[key]:key==="text"||key==="color"||key==="animation"?value:Number(value)}:layer)}:scene));
-  };
-  const removeTextLayer=()=>{
-    if(!focusedLayer)return;
-    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).filter(layer=>layer.id!==focusedLayer.id)}:scene));setActiveLayer(null);
-  };
-  const saveProject=()=>{
-    const project:Project={version:3,format,font,textColor,backgroundImage,videoBackground,audioTrack,scenes};
-    const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],{type:"application/json"}));
-    const a=document.createElement("a");a.href=url;a.download="codec cinema-project.json";a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-  };
-  const loadProject=async(file:File)=>{
-    try{
-      const data=JSON.parse(await file.text()) as Project;
-      if((data.version!==1&&data.version!==2&&data.version!==3)||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
-      setScenes(data.scenes);setActiveLayer(null);setFormat(formats[data.format]?data.format:"16:9");
-      setFont(fonts.includes(data.font)?data.font:"Manrope");
-      setTextColor(/^#[0-9a-f]{6}$/i.test(data.textColor)?data.textColor:"#ffffff");
-      setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);
-      setVideoBackground(typeof data.videoBackground==="string"?data.videoBackground:null);
-      setAudioTrack(typeof data.audioTrack==="string"?data.audioTrack:null);
-      setSelected(0);setElapsed(0);setPlaying(false);
-    }catch{alert("This project file is invalid or unsupported.");}
-  };
-  const exportVideo=async()=>{
-    const canvas=canvasRef.current;
-    if(!canvas||!canvas.captureStream||!("MediaRecorder" in window)){alert("WebM export is not supported in this browser.");return;}
-    const mime=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].find(m=>MediaRecorder.isTypeSupported(m));
-    if(!mime){alert("This browser does not support WebM export.");return;}
-    setExporting(true);setSelected(0);setElapsed(0);setPlaying(true);
-    const stream=canvas.captureStream(30);
-    let audioDestination:MediaStreamAudioDestinationNode|null=null;
-    if(audioTrack&&audioRef.current){
-      try{
-        if(!audioContextRef.current)audioContextRef.current=new AudioContext();
-        const audioContext=audioContextRef.current;
-        if(!audioSourceRef.current)audioSourceRef.current=audioContext.createMediaElementSource(audioRef.current);
-        await audioContext.resume();
-        audioDestination=audioContext.createMediaStreamDestination();
-        audioSourceRef.current.connect(audioDestination);
-        stream.addTrack(audioDestination.stream.getAudioTracks()[0]);
-      }catch(error){console.warn("Audio export setup failed",error);}
+  const [width, height] = formats[format];
+
+  useEffect(() => { codeRef.current = code; }, [code]);
+
+  const compile = useCallback((source: string) => {
+    // Scripts are user-authored and execute locally in this browser tab.
+    return new Function("ctx", "t", "w", "h", source) as RenderFunction;
+  }, []);
+
+  const drawFrame = useCallback((time: number) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !renderRef.current) return;
+    try {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      renderRef.current(ctx, time, canvas.width, canvas.height);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Your script has an error.");
+      setRunning(false);
+      setStatus("SCRIPT ERROR");
     }
-    const recorder=new MediaRecorder(stream,{mimeType:mime});
-    const chunks:BlobPart[]=[];
-    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-    recorder.onstop=()=>{
-      const url=URL.createObjectURL(new Blob(chunks,{type:"video/webm"}));
-      const a=document.createElement("a");a.href=url;a.download="codec-cinema.webm";a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      stream.getTracks().forEach(track=>track.stop());audioDestination?.stream.getTracks().forEach(track=>track.stop());if(audioDestination&&audioSourceRef.current)audioSourceRef.current.disconnect(audioDestination);setExporting(false);
-    };
-    recorder.start();
-    window.setTimeout(()=>{if(recorder.state!=="inactive")recorder.stop();setPlaying(false);},duration*1000+350);
-  };
-  const mediaUpload=(file:File|undefined,kind:"video"|"audio")=>{
-    if(!file)return;
-    const allowed=kind==="video"?file.type.startsWith("video/"):file.type.startsWith("audio/");
-    const limit=kind==="video"?30:20;
-    if(!allowed){alert(`Choose a ${kind} file.`);return;}
-    if(file.size>limit*1024*1024){alert(`Please use a ${kind} smaller than ${limit} MB.`);return;}
-    const reader=new FileReader();
-    reader.onload=()=>kind==="video"?setVideoBackground(String(reader.result)):setAudioTrack(String(reader.result));
-    reader.readAsDataURL(file);
-  };
-  const imageUpload=(file?:File)=>{
-    if(!file)return;
-    if(!file.type.startsWith("image/")){alert("Choose an image file.");return;}
-    if(file.size>12*1024*1024){alert("Please use an image smaller than 12 MB.");return;}
-    const reader=new FileReader();reader.onload=()=>setBackgroundImage(String(reader.result));reader.readAsDataURL(file);
+  }, []);
+
+  const runCode = () => {
+    try {
+      renderRef.current = compile(code);
+      setError("");
+      setElapsed(0);
+      elapsedRef.current = 0;
+      drawFrame(0);
+      setStatus("SCRIPT COMPILED");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not compile this script.");
+      setStatus("COMPILE ERROR");
+    }
   };
 
-  return <main className="app-shell">
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = width;
+    canvas.height = height;
+    try {
+      renderRef.current = compile(codeRef.current);
+      drawFrame(elapsedRef.current);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not compile this script.");
+    }
+  }, [width, height, compile, drawFrame]);
+
+  useEffect(() => {
+    if (!running) return;
+    startRef.current = performance.now() - elapsedRef.current * 1000;
+    const tick = (now: number) => {
+      const next = Math.min(duration, (now - startRef.current) / 1000);
+      elapsedRef.current = next;
+      setElapsed(next);
+      drawFrame(next);
+      if (next >= duration) {
+        setRunning(false);
+        if (exporting && recorderRef.current?.state === "recording") recorderRef.current.stop();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [running, duration, drawFrame, exporting]);
+
+  const play = () => {
+    if (elapsedRef.current >= duration) {
+      elapsedRef.current = 0;
+      setElapsed(0);
+    }
+    setRunning(true);
+    setStatus("PLAYING");
+  };
+  const pause = () => {
+    setRunning(false);
+    setStatus("PAUSED");
+  };
+  const stop = () => {
+    setRunning(false);
+    elapsedRef.current = 0;
+    setElapsed(0);
+    drawFrame(0);
+    setStatus("READY");
+  };
+  const exportVideo = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas?.captureStream || !("MediaRecorder" in window)) {
+      setError("WebM recording is not supported by this browser.");
+      return;
+    }
+    try {
+      renderRef.current = compile(code);
+      const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(type => MediaRecorder.isTypeSupported(type));
+      if (!mime) throw new Error("This browser does not support WebM encoding.");
+      const stream = canvas.captureStream(30);
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        const url = URL.createObjectURL(new Blob(chunks, { type: mime }));
+        const a = document.createElement("a");
+        a.href = url; a.download = "codec cinema.webm"; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        stream.getTracks().forEach(track => track.stop());
+        recorderRef.current = null;
+        setExporting(false);
+        setStatus("EXPORT COMPLETE");
+      };
+      recorder.onerror = () => {
+        setError("Recording failed. Try a smaller format or a shorter video.");
+        setExporting(false);
+      };
+      recorderRef.current = recorder;
+      setExporting(true);
+      setStatus("RENDERING");
+      elapsedRef.current = 0;
+      setElapsed(0);
+      drawFrame(0);
+      recorder.start();
+      setRunning(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed.");
+      setExporting(false);
+    }
+  };
+  const downloadScript = () => {
+    const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "my-cinema.js"; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const openScript = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 500_000) { setError("Please choose a script smaller than 500 KB."); return; }
+    setCode(await file.text());
+    setStatus("SCRIPT LOADED — PRESS RUN");
+  };
+
+  return <main className="studio">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>STUDIO / 003</small></div>
-      <div className="top-center"><span className="live-dot"/> LOCAL PROJECT <span className="divider">/</span> UNTITLED FILM</div>
-      <div className="top-actions"><span className="saved">● STORED ON YOUR DEVICE</span><button className="secondary-btn" onClick={()=>importRef.current?.click()}>OPEN</button><button className="secondary-btn" onClick={saveProject}>SAVE PROJECT</button><button className="export-btn" onClick={exportVideo} disabled={exporting}>{exporting?"RENDERING…":"↗ EXPORT FILM"}</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e=>{void loadProject(e.target.files?.[0] as File);e.currentTarget.value="";}}/></div>
+      <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small></div>
+      <div className="top-status"><i /> LOCAL RENDER ENGINE <span>/</span> {status}</div>
+      <div className="top-actions">
+        <label className="button secondary">OPEN SCRIPT<input hidden type="file" accept=".js,.txt,text/javascript" onChange={e => { void openScript(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
+        <button className="button secondary" onClick={downloadScript}>SAVE .JS</button>
+        <button className="button primary" onClick={exportVideo} disabled={exporting}>{exporting ? "RENDERING…" : "↗ EXPORT WEBM"}</button>
+      </div>
     </header>
-    <section className="workspace">
-      <aside className="left-panel">
-        <div className="panel-heading">PROJECT <span>03</span></div>
-        <div className="project-card"><div className="project-thumb">✳</div><div><b>Untitled Film</b><small>Motion design · 30 FPS</small></div></div>
-        <div className="panel-heading section-gap">CANVAS</div>
-        <label className="field-label">ASPECT RATIO</label><select value={format} onChange={e=>setFormat(e.target.value)}>{Object.keys(formats).map(f=><option key={f}>{f}</option>)}</select>
-        <div className="spec-row"><span>Resolution</span><b>{width} × {height}</b></div><div className="spec-row"><span>Frame rate</span><b>30 FPS</b></div>
-        <div className="panel-heading section-gap">TEXT DESIGN</div>
-        <label className="field-label">TYPEFACE</label><select value={font} onChange={e=>setFont(e.target.value)}>{fonts.map(f=><option key={f}>{f}</option>)}</select>
-        <label className="field-label">TEXT COLOR</label><div className="color-control"><input type="color" value={textColor} onChange={e=>setTextColor(e.target.value)}/><span>{textColor.toUpperCase()}</span></div>
-        <div className="panel-heading section-gap">BACKGROUND</div>
-        <label className="upload-control">＋ ADD IMAGE<input type="file" accept="image/*" onChange={e=>imageUpload(e.target.files?.[0])}/></label>
-        {backgroundImage&&<button className="clear-btn" onClick={()=>setBackgroundImage(null)}>Remove background image</button>}
-        <div className="panel-heading section-gap">VIDEO BACKGROUND</div>
-        <label className="upload-control">＋ ADD VIDEO<input type="file" accept="video/*" onChange={e=>mediaUpload(e.target.files?.[0],"video")}/></label>
-        {videoBackground&&<button className="clear-btn" onClick={()=>setVideoBackground(null)}>Remove video background</button>}
-        <div className="panel-heading section-gap">AUDIO TRACK</div>
-        <label className="upload-control">＋ ADD MUSIC / AUDIO<input type="file" accept="audio/*" onChange={e=>mediaUpload(e.target.files?.[0],"audio")}/></label>
-        {audioTrack&&<><button className="clear-btn" onClick={()=>setAudioTrack(null)}>Remove audio track</button><label className="field-label">MUSIC VOLUME · {Math.round(audioVolume*100)}%</label><input type="range" min="0" max="1" step="0.01" value={audioVolume} onChange={e=>setAudioVolume(Number(e.target.value))}/></>}
-        <div className="panel-heading section-gap">SCENE SETTINGS</div>
-        <label className="field-label">HEADLINE</label><input value={current.title} onChange={e=>update("title",e.target.value)} maxLength={28}/>
-        <label className="field-label">SUBTITLE</label><input value={current.subtitle} onChange={e=>update("subtitle",e.target.value)} maxLength={38}/>
-        <label className="field-label">ACCENT COLOR</label><div className="color-control"><input type="color" value={current.accent} onChange={e=>update("accent",e.target.value)}/><span>{current.accent.toUpperCase()}</span></div>
-        <label className="field-label">ENTRANCE TRANSITION</label><select value={current.transition} onChange={e=>update("transition",e.target.value)}><option value="fade">Fade + rise</option><option value="slide">Slide in</option><option value="zoom">Zoom in</option><option value="none">None</option></select>
-        <label className="field-label">DURATION · SECONDS</label><input type="number" min="1" max="30" value={current.duration} onChange={e=>update("duration",e.target.value)}/>
-        <div className="panel-heading section-gap">EXTRA TEXT LAYERS</div>
-        <button className="add-layer" onClick={addTextLayer}>＋ Add text layer</button>
-        {sceneLayers.map(layer=><button key={layer.id} className={"layer "+(focusedLayer?.id===layer.id?"layer-active":"")} onClick={()=>setActiveLayer(layer.id)}><span className="layer-icon">T</span><span><b>{layer.text}</b><small>Overlay text</small></span></button>)}
-        {focusedLayer&&<><label className="field-label">LAYER TEXT</label><input value={focusedLayer.text} maxLength={60} onChange={e=>updateTextLayer("text",e.target.value)}/><label className="field-label">HORIZONTAL · {focusedLayer.x}%</label><input type="range" min="5" max="95" value={focusedLayer.x} onChange={e=>updateTextLayer("x",e.target.value)}/><label className="field-label">VERTICAL · {focusedLayer.y}%</label><input type="range" min="5" max="95" value={focusedLayer.y} onChange={e=>updateTextLayer("y",e.target.value)}/><label className="field-label">SIZE · {focusedLayer.size}</label><input type="range" min="18" max="180" value={focusedLayer.size} onChange={e=>updateTextLayer("size",e.target.value)}/><label className="field-label">LAYER COLOR</label><div className="color-control"><input type="color" value={focusedLayer.color} onChange={e=>updateTextLayer("color",e.target.value)}/><span>{focusedLayer.color.toUpperCase()}</span></div><label className="field-label">ENTRANCE ANIMATION</label><select value={focusedLayer.animation??"fade"} onChange={e=>updateTextLayer("animation",e.target.value)}><option value="fade">Fade in</option><option value="rise">Rise up</option><option value="zoom">Zoom in</option><option value="none">None</option></select><label className="field-label">START DELAY · {(focusedLayer.delay??0).toFixed(1)}s</label><input type="range" min="0" max="3" step="0.1" value={focusedLayer.delay??0} onChange={e=>updateTextLayer("delay",e.target.value)}/><button className="clear-btn" onClick={removeTextLayer}>Remove selected text layer</button></>}
-        <div className="tip"><span>✦</span><p><b>Your creative controls.</b><br/>Add a background, tune the typography and choose how each scene enters.</p></div>
-      </aside>
-      <section className="center-panel">
-        <div className="preview-toolbar"><span>PREVIEW <i>LIVE</i></span><span>{width} × {height} <b>·</b> 30 FPS</span></div>
-        <div className="stage-wrap"><div className="stage" style={{aspectRatio:`${width}/${height}`}}><canvas ref={canvasRef} width={width} height={height}/></div></div>
-        <video ref={videoRef} muted loop playsInline style={{display:"none"}}/><audio ref={audioRef} preload="auto" style={{display:"none"}}/>
-        <div className="transport"><button onClick={()=>{setElapsed(0);setSelected(0);setPlaying(false)}} title="Go to start">↤</button><button className="play-button" onClick={()=>{if(elapsed>=duration){setElapsed(0);setSelected(0)}setPlaying(!playing)}}>{playing?"Ⅱ":"▶"}</button><span>{Math.floor(elapsed/60).toString().padStart(2,"0")}:{Math.floor(elapsed%60).toString().padStart(2,"0")} <em>/ {Math.floor(duration/60).toString().padStart(2,"0")}:{Math.floor(duration%60).toString().padStart(2,"0")}</em></span><div className="transport-spacer"/><span className="zoom-label">{playing?"PLAYING":"READY"}</span></div>
-        <div className="timeline-head"><span>TIMELINE</span><span>{scenes.length} SCENES <b>·</b> {duration.toFixed(1)} SEC</span></div>
-        <div className="timeline">
-          <div className="ruler"><span>00:00</span><span>{Math.floor(duration*.25)}s</span><span>{Math.floor(duration*.5)}s</span><span>{Math.floor(duration*.75)}s</span><span>{duration}s</span></div>
-          <div className="track-label">▤ <span>SCENES</span></div>
-          <div className="clips">{scenes.map((s,i)=><button key={i} className={"clip "+(sceneIndex===i?"active":"")} style={{flex:s.duration}} onClick={()=>seekToScene(i)}><span className="clip-number">0{i+1}</span><b>{s.title}</b><small>{s.duration}s</small></button>)}<button className="add-clip" onClick={addScene}>＋</button></div>
-          <div className="playhead" style={{left:`calc(90px + (100% - 110px) * ${Math.min(1,elapsed/duration)})`}}/>
+
+    <section className="layout">
+      <section className="editor-panel">
+        <div className="section-title"><span>01 / YOUR SCRIPT</span><span className="live-tag">JAVASCRIPT</span></div>
+        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds.</div>
+        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} aria-label="JavaScript video script" />
+        <div className="editor-actions">
+          <button className="button primary run-button" onClick={runCode}>▶ RUN SCRIPT</button>
+          <button className="button secondary" onClick={() => { setCode(starterCode); setStatus("STARTER RESTORED"); }}>RESET</button>
+        </div>
+        {error && <div className="error-box"><b>CODE ERROR</b><span>{error}</span></div>}
+        <div className="api-card">
+          <div className="section-title">02 / QUICK REFERENCE</div>
+          <p><code>ctx</code> — Canvas 2D drawing context</p>
+          <p><code>t</code> — current time in seconds</p>
+          <p><code>w</code> / <code>h</code> — output width and height</p>
+          <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>
         </div>
       </section>
-      <aside className="right-panel">
-        <div className="panel-heading">LAYERS <span>{scenes.length}</span></div>
-        {scenes.map((s,i)=><button key={i} onClick={()=>seekToScene(i)} className={"layer "+(sceneIndex===i?"layer-active":"")}><span className="layer-icon">T</span><span><b>{s.title}</b><small>Text layer · Scene 0{i+1}</small></span><span className="eye">◉</span></button>)}
-        <button className="add-layer" onClick={addScene}>＋ Add scene</button>
-        <div className="panel-heading section-gap">PROJECT</div>
-        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
-        <div className="export-note">Save Project stores scenes and embedded image, video and audio files inside one JSON project. Large media files can make project files large. Export includes the audio track when browser support allows it.</div>
-      </aside>
+
+      <section className="preview-panel">
+        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS</b></span></div>
+        <div className="canvas-frame"><canvas ref={canvasRef} /></div>
+        <div className="transport">
+          <button onClick={stop} aria-label="Stop">■</button>
+          <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"}>{running ? "Ⅱ" : "▶"}</button>
+          <span>{elapsed.toFixed(2)}s <em>/ {duration.toFixed(1)}s</em></span>
+          <input className="scrubber" type="range" min="0" max={duration} step="0.01" value={elapsed} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
+          <span>{Math.max(0, duration - elapsed).toFixed(1)}s left</span>
+        </div>
+        <div className="render-settings">
+          <label>FORMAT <select value={format} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
+          <label>DURATION <select value={duration} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
+          <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
+        </div>
+      </section>
     </section>
-    <footer><span>CODECINEMA <b>0.6.0</b></span><span>ANIMATED TEXT ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
+    <footer><span>CODECINEMA <b>0.7.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
   </main>;
 }
