@@ -441,7 +441,21 @@ export default function App() {
 
       <section className="preview-panel">
         <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><div className="preview-head-actions"><span className="resolution">{width} × {height} <b>{fps} FPS TARGET</b></span><button className="expand-editor" onClick={() => setPreviewExpanded(v => !v)}>{previewExpanded ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button></div></div>
-        <div className={`canvas-frame${previewExpanded ? " preview-expanded" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
+        <div className={`canvas-frame${previewExpanded ? " preview-expanded" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}>
+          <canvas ref={canvasRef} />
+          {previewExpanded && <div className="fullscreen-controls">
+            <div className="fullscreen-topbar">
+              <span>CODECINEMA <i>LIVE PREVIEW</i></span>
+              <button type="button" onClick={() => setPreviewExpanded(false)} aria-label="Close fullscreen preview">✕ <b>EXIT</b></button>
+            </div>
+            <div className="fullscreen-bottom">
+              <button type="button" className="fullscreen-play" onClick={running ? pause : play} disabled={exporting} aria-label={running ? "Pause preview" : "Play preview"}>{running ? "Ⅱ" : "▶"}</button>
+              <span>{elapsed.toFixed(1)}s</span>
+              <input aria-label="Preview timeline" type="range" min="0" max={duration} step="0.01" value={elapsed} disabled={exporting} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
+              <span>{duration.toFixed(0)}s</span>
+            </div>
+          </div>}
+        </div>
         <div className="transport">
           <button onClick={stop} aria-label={exporting ? "Cancel export" : "Stop"}>{exporting ? "×" : "■"}</button>
           <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"} disabled={exporting}>{running ? "Ⅱ" : "▶"}</button>
