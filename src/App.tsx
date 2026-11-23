@@ -107,7 +107,33 @@ chars.forEach((c,i)=>{
   ctx.fillText(c,x+widths[i]/2,y); x+=widths[i];
 });
 ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="16px monospace";
-ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`
+ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`,
+  "Scene sequence": `// SCENE SEQUENCE — independent timed scenes with built-in transitions
+ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, w, h);
+
+api.scene(ctx, t, "OPEN", 0, 5, (local, progress) => {
+  ctx.fillStyle = "#b5ff6d";
+  ctx.textAlign = "center";
+  ctx.font = "800 64px Arial";
+  ctx.fillText("SCENE ONE", w/2, h/2 + Math.sin(local*2)*12);
+}, { transition: "zoom", enter: 1, exit: 0.7 });
+
+api.scene(ctx, t, "MOTION", 5, 10, (local, progress) => {
+  const x = api.lerp(-w*0.2, w*1.2, progress);
+  ctx.fillStyle = "#7dd3fc";
+  ctx.shadowColor = "#7dd3fc"; ctx.shadowBlur = 32;
+  ctx.beginPath(); ctx.arc(x, h/2, 48, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+  ctx.font = "700 42px Arial"; ctx.fillText("SCENE TWO", w/2, h*0.72);
+}, { transition: "slide", enter: 0.8, exit: 0.8 });
+
+api.scene(ctx, t, "FINALE", 10, 15, (local, progress) => {
+  ctx.fillStyle = "#f4f7fb"; ctx.textAlign = "center";
+  ctx.font = "900 76px Arial"; ctx.fillText("YOUR STORY", w/2, h/2);
+  ctx.fillStyle = "#b5ff6d"; ctx.fillRect(w/2-70, h/2+54, 140, 5);
+}, { transition: "fade", enter: 1, exit: 1 });
+`
 };
 
 const api = {
@@ -123,6 +149,31 @@ const api = {
   noise: (x: number, y = 0) => { const hash = (a: number, b: number) => { const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return n - Math.floor(n); }; const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1); const top = a + (b-a)*sx, bottom = c + (d-c)*sx; return top + (bottom-top)*sy; },
   hsla: (h: number, s = 100, l = 50, a = 1) => `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${a})`,
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize = 10, family = "Arial", weight = "700") => { let current = size; while (current > minSize) { ctx.font = `${weight} ${current}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; current -= 1; } return current; },
+  scene: (ctx: CanvasRenderingContext2D, time: number, name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number } = {}) => {
+    if (time < start || time > end || end <= start) return false;
+    const length = end - start;
+    const enter = Math.max(0, Math.min(length / 2, options.enter ?? 0.6));
+    const exit = Math.max(0, Math.min(length / 2, options.exit ?? 0.6));
+    const inP = enter > 0 ? Math.max(0, Math.min(1, (time - start) / enter)) : 1;
+    const outP = exit > 0 ? Math.max(0, Math.min(1, (end - time) / exit)) : 1;
+    const progress = Math.max(0, Math.min(1, (time - start) / length));
+    const alpha = Math.min(inP, outP);
+    const eased = alpha * alpha * (3 - 2 * alpha);
+    const mode = options.transition ?? "fade";
+    ctx.save();
+    ctx.globalAlpha *= eased;
+    if (mode === "slide") {
+      const direction = time - start < enter ? 1 - (inP * inP * (3 - 2 * inP)) : 0;
+      ctx.translate(-ctx.canvas.width * 0.08 * direction, 0);
+    } else if (mode === "zoom") {
+      const scale = 1.08 - 0.08 * (inP * inP * (3 - 2 * inP));
+      ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
+      ctx.scale(scale, scale);
+      ctx.translate(-ctx.canvas.width / 2, -ctx.canvas.height / 2);
+    }
+    try { draw(time - start, progress, time); } finally { ctx.restore(); }
+    return true;
+  },
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
     const r = Math.max(0, Math.min(radius, width / 2, height / 2));
     ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
@@ -143,6 +194,7 @@ type CinemaApi = {
   noise: (x: number, y?: number) => number;
   hsla: (h: number, s?: number, l?: number, a?: number) => string;
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize?: number, family?: string, weight?: string) => number;
+  scene: (ctx: CanvasRenderingContext2D, time: number, name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options?: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number }) => boolean;
 };
 type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: CinemaApi) => void;
 
@@ -546,7 +598,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -572,6 +624,7 @@ export default function App() {
           <p><code>api.random(seed)</code>, <code>api.noise(x,y)</code> — repeatable procedural variation</p>
           <p><code>api.hsla()</code>, <code>api.fitText()</code> — color and typography helpers</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
+          <p><code>api.scene(ctx,t,name,start,end,draw,options)</code> — timed scene with fade, slide or zoom transition. The draw callback receives local time, progress and global time.</p>
           <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>
           <p><code>Math.sin(t)</code> creates smooth motion. <code>ctx.save()</code> / <code>ctx.restore()</code> isolate drawing styles.</p>
           <p><b>Tip:</b> Select an example above, change its code, then press RUN SCRIPT.</p>
