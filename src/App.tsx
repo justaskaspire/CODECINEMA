@@ -109,7 +109,19 @@ ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="16px monospace";
 ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`
 };
 
-type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void;
+const api = {
+  clamp: (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v)),
+  lerp: (a: number, b: number, p: number) => a + (b - a) * p,
+  ease: (p: number) => { const x = Math.max(0, Math.min(1, p)); return x * x * (3 - 2 * x); },
+  easeOut: (p: number) => 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3),
+  map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => outMin + ((v - inMin) / (inMax - inMin || 1)) * (outMax - outMin),
+  roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
+  }
+};
+
+type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: typeof api) => void;
 
 export default function App() {
   const [code, setCode] = useState(() => { try { return localStorage.getItem("codec-2026-script") || starterCode; } catch { return starterCode; } });
@@ -120,6 +132,7 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("READY");
+  const [editorExpanded, setEditorExpanded] = useState(false);
   const [exporting, setExporting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
@@ -137,7 +150,7 @@ export default function App() {
 
   const compile = useCallback((source: string) => {
     // Scripts are user-authored and execute locally in this browser tab.
-    return new Function("ctx", "t", "w", "h", source) as RenderFunction;
+    return new Function("ctx", "t", "w", "h", "api", source) as RenderFunction;
   }, []);
 
   const drawFrame = useCallback((time: number) => {
@@ -146,7 +159,7 @@ export default function App() {
     if (!canvas || !ctx || !renderRef.current) return;
     try {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      renderRef.current(ctx, time, canvas.width, canvas.height);
+      renderRef.current(ctx, time, canvas.width, canvas.height, api);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Your script has an error.");
@@ -237,7 +250,7 @@ export default function App() {
       recorder.onstop = () => {
         const url = URL.createObjectURL(new Blob(chunks, { type: mime }));
         const a = document.createElement("a");
-        a.href = url; a.download = "codec cinema.webm"; a.click();
+        a.href = url; a.download = "codec-cinema.webm"; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1500);
         stream.getTracks().forEach(track => track.stop());
         recorderRef.current = null;
@@ -286,8 +299,8 @@ export default function App() {
     </header>
 
     <section className="layout">
-      <section className="editor-panel">
-        <div className="section-title"><span>01 / YOUR SCRIPT</span><span className="live-tag">JAVASCRIPT</span></div>
+      <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}`}>
+        <div className="section-title"><span>01 / YOUR SCRIPT</span><div className="editor-tools"><button className="expand-editor" onClick={() => setEditorExpanded(v => !v)}>{editorExpanded ? "CLOSE EDITOR" : "EXPAND EDITOR"}</button><span className="live-tag">JAVASCRIPT</span></div></div>
         <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>\n        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); }}><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
         <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); } }} aria-label="JavaScript video script" />
         <div className="editor-actions">
@@ -300,12 +313,15 @@ export default function App() {
           <p><code>ctx</code> — Canvas 2D drawing context</p>
           <p><code>t</code> — current time in seconds</p>
           <p><code>w</code> / <code>h</code> — output width and height</p>
+          <p><code>api.clamp()</code>, <code>api.lerp()</code>, <code>api.map()</code> — math helpers</p>
+          <p><code>api.ease()</code>, <code>api.easeOut()</code> — smooth animation curves</p>
+          <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
           <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>\n          <p><code>Math.sin(t)</code> creates smooth motion. <code>ctx.save()</code> / <code>ctx.restore()</code> isolate drawing styles.</p>\n          <p><b>Tip:</b> Select an example above, change its code, then press RUN SCRIPT.</p>
         </div>
       </section>
 
       <section className="preview-panel">
-        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS</b></span></div>
+        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS TARGET</b></span></div>
         <div className="canvas-frame" style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
         <div className="transport">
           <button onClick={stop} aria-label="Stop">■</button>
@@ -321,6 +337,6 @@ export default function App() {
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.7.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
+    <footer><span>CODECINEMA <b>0.9.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
   </main>;
 }
