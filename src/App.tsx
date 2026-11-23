@@ -199,18 +199,18 @@ const api = {
   hsla: (h: number, s = 100, l = 50, a = 1) => `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${a})`,
   textReveal: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options: { font?: string; color?: string; align?: CanvasTextAlign; mode?: "chars" | "words" | "fade" | "rise" | "tracking"; stagger?: number; tracking?: number; maxWidth?: number; shadowColor?: string; shadowBlur?: number } = {}) => {
     const value=String(text ?? ""), mode=options.mode ?? "chars";
-    const units=mode==="words" ? (value.match(/\\S+\\s*/g) || []) : Array.from(value);
+    const units=mode==="words" ? (value.match(/\S+\s*/g) || []) : Array.from(value);
     if(!units.length) return;
     ctx.save(); if(options.font) ctx.font=options.font;
-    if(options.maxWidth && ctx.measureText(value).width>options.maxWidth){ const m=ctx.font.match(/(\\d+(?:\\.\\d+)?)px/); if(m) ctx.font=ctx.font.replace(m[0],(Number(m[1])*options.maxWidth/ctx.measureText(value).width).toFixed(2)+"px"); }
+    if(options.maxWidth && ctx.measureText(value).width>options.maxWidth){ const m=ctx.font.match(/(\d+(?:\.\d+)?)px/); if(m) ctx.font=ctx.font.replace(m[0],(Number(m[1])*options.maxWidth/ctx.measureText(value).width).toFixed(2)+"px"); }
     const tracking=options.tracking ?? 0, widths=units.map(unit=>ctx.measureText(unit).width);
     const total=widths.reduce((a,b)=>a+b,0)+tracking*Math.max(0,units.length-1);
     let cursor=x-(options.align==="center"?total/2:options.align==="right"?total:0);
     ctx.textAlign="left"; if(options.color) ctx.fillStyle=options.color;
     if(options.shadowColor){ctx.shadowColor=options.shadowColor;ctx.shadowBlur=options.shadowBlur ?? 16;}
     const p=Math.max(0,Math.min(1,progress)), stagger=Math.max(0,Math.min(0.2,options.stagger ?? 0.035));
-    const span=Math.max(0.001,1-stagger*Math.max(0,units.length-1));
-    units.forEach((unit,i)=>{ const local=mode==="fade"?p:Math.max(0,Math.min(1,(p-i*stagger)/span)); if(local>0){ctx.globalAlpha*=local; const rise=mode==="rise"?(1-local)*18:mode==="tracking"?(1-local)*12:0; ctx.fillText(unit,cursor,y+rise); ctx.globalAlpha=1;} cursor+=widths[i]+tracking; });
+    const span=Math.max(0.001,1-stagger*Math.max(0,units.length-1)), baseAlpha=ctx.globalAlpha;
+    units.forEach((unit,i)=>{ const local=mode==="fade"?p:Math.max(0,Math.min(1,(p-i*stagger)/span)); if(local>0){ctx.globalAlpha=baseAlpha*local; const rise=mode==="rise"?(1-local)*18:mode==="tracking"?(1-local)*12:0; ctx.fillText(unit,cursor,y+rise);} cursor+=widths[i]+tracking; });
     ctx.restore();
   },
   typewriter: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, time: number, speed = 18, options: { font?: string; color?: string; align?: CanvasTextAlign; cursor?: boolean } = {}) => {
