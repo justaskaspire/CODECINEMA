@@ -180,7 +180,7 @@ export default function App() {
     if (/&lt;|&gt;|&amp;|&#91;|&#93;|\\\*/i.test(source)) {
       throw new Error("This code appears HTML-escaped. Replace &lt; with <, &gt; with >, &amp; with &, &#91; with [, &#93; with ], and \\* with * — or ask for raw JavaScript.");
     }
-    return new Function("ctx", "t", "w", "h", "api", source + "\\n//# sourceURL=codec-cinema-user-script") as RenderFunction;
+    return new Function("ctx", "t", "w", "h", "api", source + "\n//# sourceURL=codec-cinema-user-script") as RenderFunction;
   }, []);
 
   const drawFrame = useCallback((time: number) => {
