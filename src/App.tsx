@@ -154,7 +154,7 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [bitrate, setBitrate] = useState(6);
-  const [installPrompt, setInstallPrompt] = useState<((...args: never[]) => Promise<void>) | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
@@ -179,7 +179,7 @@ export default function App() {
     setIsInstalled(window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
     const onPrompt = (event: Event) => {
       event.preventDefault();
-      setInstallPrompt(() => (event as Event & { prompt: () => Promise<void> }).prompt);
+      setInstallPrompt(event as Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> });
     };
     const onInstalled = () => { setIsInstalled(true); setInstallPrompt(null); };
     window.addEventListener("beforeinstallprompt", onPrompt);
@@ -193,8 +193,10 @@ export default function App() {
   const installApp = async () => {
     if (isInstalled) return;
     if (installPrompt) {
-      await installPrompt();
+      const promptEvent = installPrompt;
       setInstallPrompt(null);
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
       return;
     }
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
