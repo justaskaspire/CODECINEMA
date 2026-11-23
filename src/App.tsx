@@ -154,6 +154,8 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [bitrate, setBitrate] = useState(6);
+  const [installPrompt, setInstallPrompt] = useState<((...args: never[]) => Promise<void>) | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
   const renderRef = useRef<RenderFunction | null>(null);
@@ -172,6 +174,31 @@ export default function App() {
     "4:5": quality === "720p" ? [720, 900] : [1080, 1350]
   };
   const [width, height] = formats[format];
+
+  useEffect(() => {
+    setIsInstalled(window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(() => (event as Event & { prompt: () => Promise<void> }).prompt);
+    };
+    const onInstalled = () => { setIsInstalled(true); setInstallPrompt(null); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (isInstalled) return;
+    if (installPrompt) {
+      await installPrompt();
+      setInstallPrompt(null);
+      return;
+    }
+    window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
+  };
 
   useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); } catch { /* storage may be unavailable */ } }, [code]);
 
@@ -369,7 +396,7 @@ export default function App() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small></div>
       <div className="top-status"><i /> LOCAL RENDER ENGINE <span>/</span> {status}</div>
-      <div className="top-actions">
+      <div className="top-actions">\n        {!isInstalled && <button className="button install-button" onClick={() => void installApp()}>↓ INSTALL APP</button>}\n        {isInstalled && <span className="installed-badge">✓ INSTALLED</span>}
         <label className="button secondary">OPEN SCRIPT<input hidden type="file" accept=".js,.txt,text/javascript" onChange={e => { void openScript(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
         <button className="button secondary" onClick={downloadScript}>SAVE .JS</button>
         <button className="button primary" onClick={exportVideo} disabled={exporting}>{exporting ? "RENDERING…" : "↗ EXPORT WEBM"}</button>
