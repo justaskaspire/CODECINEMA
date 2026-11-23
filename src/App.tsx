@@ -56,10 +56,64 @@ ctx.fillText("CODECINEMA / 001", 54, h - 42);
 ctx.textAlign = "right";
 ctx.fillText(t.toFixed(2) + " SEC", w - 54, h - 42);`;
 
+
+const examples: Record<string, string> = {
+  "Cinematic title": starterCode,
+  "Particle universe": `// PARTICLE UNIVERSE — a procedural field of glowing particles
+const rand = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, w, h);
+const cx = w / 2, cy = h / 2;
+for (let i = 0; i < 180; i++) {
+  const depth = rand(i + 1);
+  const speed = 0.12 + depth * 0.6;
+  const angle = rand(i + 300) * Math.PI * 2 + t * speed;
+  const radius = (0.08 + rand(i + 700) * 0.48) * Math.min(w, h);
+  const x = cx + Math.cos(angle) * radius;
+  const y = cy + Math.sin(angle) * radius;
+  const size = 1 + depth * 3;
+  ctx.globalAlpha = 0.2 + depth * 0.75;
+  ctx.fillStyle = depth > 0.82 ? "#b5ff6d" : "#b8d7ff";
+  ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+}
+ctx.globalAlpha = 1;
+const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w,h)*0.3);
+g.addColorStop(0, "rgba(76,126,255,.16)"); g.addColorStop(1, "rgba(76,126,255,0)");
+ctx.fillStyle = g; ctx.fillRect(0,0,w,h);`,
+  "Orbiting geometry": `// ORBITING GEOMETRY — concentric motion and clean graphic design
+ctx.fillStyle = "#090b10"; ctx.fillRect(0, 0, w, h);
+const cx = w/2, cy = h/2, unit = Math.min(w,h)*0.28;
+ctx.strokeStyle = "rgba(255,255,255,.14)"; ctx.lineWidth = 2;
+for (let i=1;i<=4;i++) { ctx.beginPath(); ctx.arc(cx,cy,unit*i/4,0,Math.PI*2); ctx.stroke(); }
+for (let i=0;i<3;i++) {
+  const a=t*(0.65+i*0.18)+i*2.1, r=unit*(0.35+i*0.29);
+  const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+  ctx.fillStyle=["#b5ff6d","#7dd3fc","#f0abfc"][i];
+  ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=24;
+  ctx.beginPath(); ctx.arc(x,y,12+i*4,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+}
+ctx.textAlign="center"; ctx.fillStyle="#f4f7fb"; ctx.font="700 34px Arial";
+ctx.fillText("MOTION / STUDY 01",cx,h*.88);`,
+  "Wave typography": `// WAVE TYPOGRAPHY — a title distorted by a flowing wave
+ctx.fillStyle = "#070a10"; ctx.fillRect(0,0,w,h);
+const title="CREATE THE IMPOSSIBLE";
+ctx.textAlign="center"; ctx.textBaseline="middle";
+ctx.font="900 76px Arial";
+const chars=[...title], widths=chars.map(c=>ctx.measureText(c).width);
+let x=(w-widths.reduce((a,b)=>a+b,0))/2;
+chars.forEach((c,i)=>{
+  const y=h/2+Math.sin(t*2.2+i*.42)*34;
+  ctx.fillStyle=i%3===0?"#b5ff6d":"#f2f5fa";
+  ctx.fillText(c,x+widths[i]/2,y); x+=widths[i];
+});
+ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="16px monospace";
+ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`
+};
+
 type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void;
 
 export default function App() {
-  const [code, setCode] = useState(starterCode);
+  const [code, setCode] = useState(() => { try { return localStorage.getItem("codec-2026-script") || starterCode; } catch { return starterCode; } });
+  const [example, setExample] = useState("Cinematic title");
   const [duration, setDuration] = useState(8);
   const [format, setFormat] = useState("16:9");
   const [running, setRunning] = useState(false);
@@ -79,7 +133,7 @@ export default function App() {
   };
   const [width, height] = formats[format];
 
-  useEffect(() => { codeRef.current = code; }, [code]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); } catch { /* storage may be unavailable */ } }, [code]);
 
   const compile = useCallback((source: string) => {
     // Scripts are user-authored and execute locally in this browser tab.
@@ -234,11 +288,11 @@ export default function App() {
     <section className="layout">
       <section className="editor-panel">
         <div className="section-title"><span>01 / YOUR SCRIPT</span><span className="live-tag">JAVASCRIPT</span></div>
-        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds.</div>
-        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} aria-label="JavaScript video script" />
+        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>\n        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); }}><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
+        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); } }} aria-label="JavaScript video script" />
         <div className="editor-actions">
           <button className="button primary run-button" onClick={runCode}>▶ RUN SCRIPT</button>
-          <button className="button secondary" onClick={() => { setCode(starterCode); setStatus("STARTER RESTORED"); }}>RESET</button>
+          <button className="button secondary" onClick={() => { setCode(starterCode); setExample("Cinematic title"); setStatus("STARTER RESTORED"); }}>RESET</button>
         </div>
         {error && <div className="error-box"><b>CODE ERROR</b><span>{error}</span></div>}
         <div className="api-card">
@@ -246,13 +300,13 @@ export default function App() {
           <p><code>ctx</code> — Canvas 2D drawing context</p>
           <p><code>t</code> — current time in seconds</p>
           <p><code>w</code> / <code>h</code> — output width and height</p>
-          <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>
+          <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>\n          <p><code>Math.sin(t)</code> creates smooth motion. <code>ctx.save()</code> / <code>ctx.restore()</code> isolate drawing styles.</p>\n          <p><b>Tip:</b> Select an example above, change its code, then press RUN SCRIPT.</p>
         </div>
       </section>
 
       <section className="preview-panel">
         <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS</b></span></div>
-        <div className="canvas-frame"><canvas ref={canvasRef} /></div>
+        <div className="canvas-frame" style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
         <div className="transport">
           <button onClick={stop} aria-label="Stop">■</button>
           <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"}>{running ? "Ⅱ" : "▶"}</button>
