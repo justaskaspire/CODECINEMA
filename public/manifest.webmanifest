@@ -1,0 +1,16 @@
+{
+  "id": "/CODECINEMA/",
+  "name": "CODECINEMA — Code-Driven Motion Studio",
+  "short_name": "CODECINEMA",
+  "description": "Create and render motion graphics with JavaScript. Runs locally in your browser.",
+  "start_url": "/CODECINEMA/",
+  "scope": "/CODECINEMA/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b12",
+  "theme_color": "#080b12",
+  "categories": ["design", "video", "productivity"],
+  "icons": [
+    { "src": "/CODECINEMA/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
