@@ -24,3 +24,17 @@
 .render-progress{flex-basis:100%;height:5px;background:#1a2431;border-radius:8px;overflow:hidden;margin-top:2px}
 .render-progress i{display:block;height:100%;background:linear-gradient(90deg,#62c8ff,#b5ff6d);box-shadow:0 0 12px #b5ff6d;transition:width .15s}
 @media(max-width:680px){.audio-name{max-width:100%;font-size:8px}.render-progress{flex-basis:100%}}
+
+/* Fullscreen preview controls stay visible above the canvas. */
+.canvas-frame{position:relative}
+.fullscreen-controls{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));pointer-events:none;background:linear-gradient(180deg,rgba(3,6,13,.58),transparent 24%,transparent 72%,rgba(3,6,13,.68))}
+.fullscreen-topbar,.fullscreen-bottom{display:flex;align-items:center;gap:12px;pointer-events:auto}
+.fullscreen-topbar{justify-content:space-between;color:#f1f5fb;font:10px 'DM Mono',monospace;letter-spacing:1px}
+.fullscreen-topbar i{font-style:normal;color:#b5ff6d;margin-left:8px;font-size:8px}
+.fullscreen-topbar button{display:flex;align-items:center;gap:7px;background:rgba(10,15,25,.82);border:1px solid #ffffff55;border-radius:22px;color:#fff;padding:10px 13px;font:14px 'DM Mono',monospace;cursor:pointer}
+.fullscreen-topbar button b{font-size:9px;letter-spacing:.8px}
+.fullscreen-bottom{align-self:center;width:min(680px,100%);padding:10px 14px;background:rgba(7,12,21,.82);border:1px solid #ffffff30;border-radius:30px;backdrop-filter:blur(12px);color:#fff;font:10px 'DM Mono',monospace}
+.fullscreen-play{width:38px;height:38px;flex:0 0 38px;border:1px solid #b5ff6d;border-radius:50%;background:#b5ff6d;color:#10170b;font-size:14px;cursor:pointer}
+.fullscreen-bottom input{flex:1;min-width:35px;accent-color:#b5ff6d}
+.fullscreen-bottom button:disabled,.fullscreen-bottom input:disabled{opacity:.45;cursor:wait}
+@media(max-width:680px){.fullscreen-controls{padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}.fullscreen-topbar{font-size:9px}.fullscreen-topbar button{padding:9px 11px}.fullscreen-bottom{gap:9px;padding:8px 11px}.fullscreen-play{width:36px;height:36px;flex-basis:36px}}
