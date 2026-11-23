@@ -203,7 +203,7 @@ export default function App() {
     setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:[...(scene.layers??[]),layer]}:scene));setActiveLayer(layer.id);
   };
   const updateTextLayer=(key:keyof Omit<TextLayer,"id">,value:string)=>{
-    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).map(layer=>layer.id===focusedLayer?.id?{...layer,[key]:key==="text"||key==="color"?value:Number(value)}:layer)}:scene));
+    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).map(layer=>layer.id===focusedLayer?.id?{...layer,[key]:key==="text"||key==="color"||key==="animation"?value:Number(value)}:layer)}:scene));
   };
   const removeTextLayer=()=>{
     if(!focusedLayer)return;
