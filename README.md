@@ -25,7 +25,7 @@ Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms 
 - Deterministic frame-by-frame MP4 (H.264) and WebM export through WebCodecs
 - Optional local audio-track import and AAC/Opus encoding
 - Export progress and cancellation with encoder cleanup
-- Export cancellation and recorder cleanup
+- Export cancellation and encoder cleanup
 - Open and save JavaScript scripts locally
 - No paid APIs, cloud rendering, external font downloads or accounts required
 
@@ -42,9 +42,9 @@ npm run build
 
 ## Important notes
 - Scripts run locally in the current browser tab with access to the page's JavaScript environment. Only run code you wrote or trust.
-- Export records the Canvas in real time using the browser's MediaRecorder API. Keep this tab open until rendering finishes.
+- Export re-renders each script frame at its exact timestamp through WebCodecs; keep this tab open until rendering finishes.
 - MP4 / WebM export support and performance depend on the browser and device. 1080p and high bitrates may be demanding on mobile devices; start with 720p and 4–6 Mbps for a lighter export.
-- The 30 FPS value is a target, not a guarantee. Actual frame pacing depends on browser/device performance.
+- Export frame timestamps follow the selected FPS. Preview playback may still drop frames on slower devices.
 - MP4 and WebM export use browser-provided WebCodecs encoders through Mediabunny. Exact codec availability depends on the browser/device.
 - Audio is optional and imported from a local file; supported audio formats depend on the browser's AudioContext decoder.
 - Export is rendered locally and uses an in-memory output buffer. For large projects, lower bitrate, resolution or duration to avoid memory pressure on mobile devices.
