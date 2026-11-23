@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Transition = "fade" | "slide" | "zoom" | "none";
-type Scene = { title: string; subtitle: string; duration: number; accent: string; transition: Transition };
+type TextLayer = { id: string; text: string; x: number; y: number; size: number; color: string };
+type Scene = { title: string; subtitle: string; duration: number; accent: string; transition: Transition; layers?: TextLayer[] };
 type Project = { version: 1 | 2; format: string; font: string; textColor: string; backgroundImage: string | null; videoBackground?: string | null; audioTrack?: string | null; scenes: Scene[] };
 const initialScenes: Scene[] = [
   { title: "MAKE IT", subtitle: "A STORY WORTH WATCHING", duration: 4, accent: "#b5ff6d", transition: "fade" },
@@ -21,6 +22,9 @@ export default function App() {
   const [backgroundImage,setBackgroundImage]=useState<string|null>(null);
   const [videoBackground,setVideoBackground]=useState<string|null>(null);
   const [audioTrack,setAudioTrack]=useState<string|null>(null);
+  const [extraLayers,setExtraLayers]=useState<TextLayer[]>([]);
+  const [activeLayer,setActiveLayer]=useState<string|null>(null);
+  const [audioVolume,setAudioVolume]=useState(0.8);
   const [exporting,setExporting]=useState(false);
   const [elapsed,setElapsed]=useState(0);
   const canvasRef=useRef<HTMLCanvasElement>(null);
@@ -38,6 +42,8 @@ export default function App() {
   const playingIndex=starts.findIndex((start,i)=>elapsed>=start && elapsed<start+scenes[i].duration);
   const sceneIndex=playing && playingIndex>=0 ? playingIndex : selected;
   const current=scenes[selected] ?? scenes[0];
+  const sceneLayers=current.layers??[];
+  const focusedLayer=sceneLayers.find(layer=>layer.id===activeLayer)??sceneLayers[0];
   const sceneTime=playing ? Math.max(0,elapsed-(starts[sceneIndex]??0)) : 0;
 
   useEffect(()=>{
@@ -92,11 +98,12 @@ export default function App() {
   useEffect(()=>{
     const audio=audioRef.current;
     if(!audio||!audioTrack)return;
+    audio.volume=audioVolume;
     if(playing){
       if(Number.isFinite(audio.duration)&&audio.duration>0)audio.currentTime=elapsed%audio.duration;
       void audio.play().catch(()=>{});
     }else audio.pause();
-  },[playing,audioTrack]);
+  },[playing,audioTrack,audioVolume]);
 
   useEffect(()=>{
     const audio=audioRef.current;
@@ -158,6 +165,11 @@ export default function App() {
       ctx.fillStyle="#dce2eb";ctx.font=`500 ${Math.max(18,w*.018)}px ${font}, system-ui, sans-serif`;
       ctx.fillText(scene.subtitle.toUpperCase(),0,h*.16,w*.82);
       ctx.restore();
+      for(const layer of (scenes[sceneIndex]?.layers??[])){
+        ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=layer.color;ctx.textAlign="center";ctx.textBaseline="middle";
+        ctx.font=`700 ${Math.max(14,Math.min(240,layer.size*(w/1920)))}px ${font}, system-ui, sans-serif`;
+        ctx.fillText(layer.text,w*layer.x/100,h*layer.y/100,w*.86);ctx.restore();
+      }
       ctx.fillStyle="#ffffff90";ctx.textAlign="center";ctx.font=`500 ${Math.max(12,w*.012)}px ${font}, system-ui, sans-serif`;
       ctx.fillText("A CODECINEMA ORIGINAL",w/2,h*.88);
       ctx.fillStyle="#ffffff25";ctx.fillRect(w*.08,h*.93,w*.84,Math.max(2,w*.002));
@@ -179,6 +191,17 @@ export default function App() {
   const update=(key:"title"|"subtitle"|"duration"|"accent"|"transition",value:string)=>{
     setScenes(old=>old.map((s,i)=>i===selected?{...s,[key]:key==="duration"?Math.max(1,Math.min(30,Number(value)||1)):value}:s));
   };
+  const addTextLayer=()=>{
+    const layer:TextLayer={id:`layer-${Date.now()}`,text:"YOUR TEXT",x:50,y:72,size:64,color:"#ffffff"};
+    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:[...(scene.layers??[]),layer]}:scene));setActiveLayer(layer.id);
+  };
+  const updateTextLayer=(key:keyof Omit<TextLayer,"id">,value:string)=>{
+    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).map(layer=>layer.id===focusedLayer?.id?{...layer,[key]:key==="text"||key==="color"?value:Number(value)}:layer)}:scene));
+  };
+  const removeTextLayer=()=>{
+    if(!focusedLayer)return;
+    setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).filter(layer=>layer.id!==focusedLayer.id)}:scene));setActiveLayer(null);
+  };
   const saveProject=()=>{
     const project:Project={version:2,format,font,textColor,backgroundImage,videoBackground,audioTrack,scenes};
     const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],{type:"application/json"}));
@@ -189,7 +212,7 @@ export default function App() {
     try{
       const data=JSON.parse(await file.text()) as Project;
       if((data.version!==1&&data.version!==2)||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
-      setScenes(data.scenes);setFormat(formats[data.format]?data.format:"16:9");
+      setScenes(data.scenes);setActiveLayer(null);setFormat(formats[data.format]?data.format:"16:9");
       setFont(fonts.includes(data.font)?data.font:"Manrope");
       setTextColor(/^#[0-9a-f]{6}$/i.test(data.textColor)?data.textColor:"#ffffff");
       setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);
@@ -270,13 +293,17 @@ export default function App() {
         {videoBackground&&<button className="clear-btn" onClick={()=>setVideoBackground(null)}>Remove video background</button>}
         <div className="panel-heading section-gap">AUDIO TRACK</div>
         <label className="upload-control">＋ ADD MUSIC / AUDIO<input type="file" accept="audio/*" onChange={e=>mediaUpload(e.target.files?.[0],"audio")}/></label>
-        {audioTrack&&<button className="clear-btn" onClick={()=>setAudioTrack(null)}>Remove audio track</button>}
+        {audioTrack&&<><button className="clear-btn" onClick={()=>setAudioTrack(null)}>Remove audio track</button><label className="field-label">MUSIC VOLUME · {Math.round(audioVolume*100)}%</label><input type="range" min="0" max="1" step="0.01" value={audioVolume} onChange={e=>setAudioVolume(Number(e.target.value))}/></>}
         <div className="panel-heading section-gap">SCENE SETTINGS</div>
         <label className="field-label">HEADLINE</label><input value={current.title} onChange={e=>update("title",e.target.value)} maxLength={28}/>
         <label className="field-label">SUBTITLE</label><input value={current.subtitle} onChange={e=>update("subtitle",e.target.value)} maxLength={38}/>
         <label className="field-label">ACCENT COLOR</label><div className="color-control"><input type="color" value={current.accent} onChange={e=>update("accent",e.target.value)}/><span>{current.accent.toUpperCase()}</span></div>
         <label className="field-label">ENTRANCE TRANSITION</label><select value={current.transition} onChange={e=>update("transition",e.target.value)}><option value="fade">Fade + rise</option><option value="slide">Slide in</option><option value="zoom">Zoom in</option><option value="none">None</option></select>
         <label className="field-label">DURATION · SECONDS</label><input type="number" min="1" max="30" value={current.duration} onChange={e=>update("duration",e.target.value)}/>
+        <div className="panel-heading section-gap">EXTRA TEXT LAYERS</div>
+        <button className="add-layer" onClick={addTextLayer}>＋ Add text layer</button>
+        {sceneLayers.map(layer=><button key={layer.id} className={"layer "+(focusedLayer?.id===layer.id?"layer-active":"")} onClick={()=>setActiveLayer(layer.id)}><span className="layer-icon">T</span><span><b>{layer.text}</b><small>Overlay text</small></span></button>)}
+        {focusedLayer&&<><label className="field-label">LAYER TEXT</label><input value={focusedLayer.text} maxLength={60} onChange={e=>updateTextLayer("text",e.target.value)}/><label className="field-label">HORIZONTAL · {focusedLayer.x}%</label><input type="range" min="5" max="95" value={focusedLayer.x} onChange={e=>updateTextLayer("x",e.target.value)}/><label className="field-label">VERTICAL · {focusedLayer.y}%</label><input type="range" min="5" max="95" value={focusedLayer.y} onChange={e=>updateTextLayer("y",e.target.value)}/><label className="field-label">SIZE · {focusedLayer.size}</label><input type="range" min="18" max="180" value={focusedLayer.size} onChange={e=>updateTextLayer("size",e.target.value)}/><label className="field-label">LAYER COLOR</label><div className="color-control"><input type="color" value={focusedLayer.color} onChange={e=>updateTextLayer("color",e.target.value)}/><span>{focusedLayer.color.toUpperCase()}</span></div><button className="clear-btn" onClick={removeTextLayer}>Remove selected text layer</button></>}
         <div className="tip"><span>✦</span><p><b>Your creative controls.</b><br/>Add a background, tune the typography and choose how each scene enters.</p></div>
       </aside>
       <section className="center-panel">
@@ -297,10 +324,10 @@ export default function App() {
         {scenes.map((s,i)=><button key={i} onClick={()=>seekToScene(i)} className={"layer "+(sceneIndex===i?"layer-active":"")}><span className="layer-icon">T</span><span><b>{s.title}</b><small>Text layer · Scene 0{i+1}</small></span><span className="eye">◉</span></button>)}
         <button className="add-layer" onClick={addScene}>＋ Add scene</button>
         <div className="panel-heading section-gap">PROJECT</div>
-        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
+        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
         <div className="export-note">Save Project stores scenes and embedded image, video and audio files inside one JSON project. Large media files can make project files large. Export includes the audio track when browser support allows it.</div>
       </aside>
     </section>
-    <footer><span>CODECINEMA <b>0.4.0</b></span><span>MEDIA ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
+    <footer><span>CODECINEMA <b>0.5.0</b></span><span>TEXT LAYER ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
   </main>;
 }
