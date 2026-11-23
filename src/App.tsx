@@ -18,11 +18,17 @@ export default function App() {
   const [format,setFormat]=useState("16:9");
   const [font,setFont]=useState("Manrope");
   const [textColor,setTextColor]=useState("#ffffff");
-  const [backgroundImage,setBackgroundImage]=useState<string|null>(null);\n  const [videoBackground,setVideoBackground]=useState<string|null>(null);\n  const [audioTrack,setAudioTrack]=useState<string|null>(null);
+  const [backgroundImage,setBackgroundImage]=useState<string|null>(null);
+  const [videoBackground,setVideoBackground]=useState<string|null>(null);
+  const [audioTrack,setAudioTrack]=useState<string|null>(null);
   const [exporting,setExporting]=useState(false);
   const [elapsed,setElapsed]=useState(0);
   const canvasRef=useRef<HTMLCanvasElement>(null);
-  const imageRef=useRef<HTMLImageElement|null>(null);\n  const videoRef=useRef<HTMLVideoElement>(null);\n  const audioRef=useRef<HTMLAudioElement>(null);\n  const audioContextRef=useRef<AudioContext|null>(null);\n  const audioSourceRef=useRef<MediaElementAudioSourceNode|null>(null);
+  const imageRef=useRef<HTMLImageElement|null>(null);
+  const videoRef=useRef<HTMLVideoElement>(null);
+  const audioRef=useRef<HTMLAudioElement>(null);
+  const audioContextRef=useRef<AudioContext|null>(null);
+  const audioSourceRef=useRef<MediaElementAudioSourceNode|null>(null);
   const rafRef=useRef<number>(0);
   const startRef=useRef(0);
   const importRef=useRef<HTMLInputElement>(null);
@@ -55,6 +61,49 @@ export default function App() {
   },[backgroundImage]);
 
   useEffect(()=>{
+    const video=videoRef.current;
+    if(!video)return;
+    video.pause();
+    if(videoBackground){video.src=videoBackground;video.load();}
+    else{video.removeAttribute("src");video.load();}
+  },[videoBackground]);
+
+  useEffect(()=>{
+    const video=videoRef.current;
+    if(!video||!videoBackground)return;
+    if(playing){
+      if(video.readyState>=1&&Number.isFinite(video.duration)&&video.duration>0)video.currentTime=elapsed%video.duration;
+      void video.play().catch(()=>{});
+    }else video.pause();
+  },[playing,videoBackground]);
+
+  useEffect(()=>{
+    const video=videoRef.current;
+    if(!playing&&video&&videoBackground&&video.readyState>=1&&Number.isFinite(video.duration)&&video.duration>0)video.currentTime=elapsed%video.duration;
+  },[elapsed,playing,videoBackground]);
+
+  useEffect(()=>{
+    const audio=audioRef.current;
+    if(!audio)return;
+    if(audioTrack){audio.src=audioTrack;audio.load();}
+    else{audio.pause();audio.removeAttribute("src");audio.load();}
+  },[audioTrack]);
+
+  useEffect(()=>{
+    const audio=audioRef.current;
+    if(!audio||!audioTrack)return;
+    if(playing){
+      if(Number.isFinite(audio.duration)&&audio.duration>0)audio.currentTime=elapsed%audio.duration;
+      void audio.play().catch(()=>{});
+    }else audio.pause();
+  },[playing,audioTrack]);
+
+  useEffect(()=>{
+    const audio=audioRef.current;
+    if(!playing&&audio&&audioTrack&&Number.isFinite(audio.duration)&&audio.duration>0)audio.currentTime=elapsed%audio.duration;
+  },[elapsed,playing,audioTrack]);
+
+  useEffect(()=>{
     const canvas=canvasRef.current;
     if(!canvas)return;
     canvas.width=width;canvas.height=height;
@@ -72,7 +121,13 @@ export default function App() {
       const bg=ctx.createLinearGradient(0,0,w,h);
       bg.addColorStop(0,"#111827");bg.addColorStop(1,"#080b12");
       ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
-      if(imageRef.current){
+      if(videoRef.current&&videoRef.current.readyState>=2&&videoRef.current.videoWidth>0){
+        const vid=videoRef.current;
+        const scale=Math.max(w/vid.videoWidth,h/vid.videoHeight);
+        const iw=vid.videoWidth*scale,ih=vid.videoHeight*scale;
+        ctx.save();ctx.globalAlpha=.72;ctx.drawImage(vid,(w-iw)/2,(h-ih)/2,iw,ih);ctx.restore();
+        ctx.fillStyle="#080b12a8";ctx.fillRect(0,0,w,h);
+      }else if(imageRef.current){
         const img=imageRef.current;
         const scale=Math.max(w/img.width,h/img.height);
         const iw=img.width*scale,ih=img.height*scale;
@@ -137,7 +192,9 @@ export default function App() {
       setScenes(data.scenes);setFormat(formats[data.format]?data.format:"16:9");
       setFont(fonts.includes(data.font)?data.font:"Manrope");
       setTextColor(/^#[0-9a-f]{6}$/i.test(data.textColor)?data.textColor:"#ffffff");
-      setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);\n      setVideoBackground(typeof data.videoBackground==="string"?data.videoBackground:null);\n      setAudioTrack(typeof data.audioTrack==="string"?data.audioTrack:null);
+      setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);
+      setVideoBackground(typeof data.videoBackground==="string"?data.videoBackground:null);
+      setAudioTrack(typeof data.audioTrack==="string"?data.audioTrack:null);
       setSelected(0);setElapsed(0);setPlaying(false);
     }catch{alert("This project file is invalid or unsupported.");}
   };
@@ -148,6 +205,18 @@ export default function App() {
     if(!mime){alert("This browser does not support WebM export.");return;}
     setExporting(true);setSelected(0);setElapsed(0);setPlaying(true);
     const stream=canvas.captureStream(30);
+    let audioDestination:MediaStreamAudioDestinationNode|null=null;
+    if(audioTrack&&audioRef.current){
+      try{
+        if(!audioContextRef.current)audioContextRef.current=new AudioContext();
+        const audioContext=audioContextRef.current;
+        if(!audioSourceRef.current)audioSourceRef.current=audioContext.createMediaElementSource(audioRef.current);
+        await audioContext.resume();
+        audioDestination=audioContext.createMediaStreamDestination();
+        audioSourceRef.current.connect(audioDestination);
+        stream.addTrack(audioDestination.stream.getAudioTracks()[0]);
+      }catch(error){console.warn("Audio export setup failed",error);}
+    }
     const recorder=new MediaRecorder(stream,{mimeType:mime});
     const chunks:BlobPart[]=[];
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
@@ -212,7 +281,8 @@ export default function App() {
       </aside>
       <section className="center-panel">
         <div className="preview-toolbar"><span>PREVIEW <i>LIVE</i></span><span>{width} × {height} <b>·</b> 30 FPS</span></div>
-        <div className="stage-wrap"><div className="stage" style={{aspectRatio:`${width}/${height}`}}><canvas ref={canvasRef} width={width} height={height}/></div></div>\n        <video ref={videoRef} muted loop playsInline style={{display:"none"}}/><audio ref={audioRef} preload="auto" style={{display:"none"}}/>
+        <div className="stage-wrap"><div className="stage" style={{aspectRatio:`${width}/${height}`}}><canvas ref={canvasRef} width={width} height={height}/></div></div>
+        <video ref={videoRef} muted loop playsInline style={{display:"none"}}/><audio ref={audioRef} preload="auto" style={{display:"none"}}/>
         <div className="transport"><button onClick={()=>{setElapsed(0);setSelected(0);setPlaying(false)}} title="Go to start">↤</button><button className="play-button" onClick={()=>{if(elapsed>=duration){setElapsed(0);setSelected(0)}setPlaying(!playing)}}>{playing?"Ⅱ":"▶"}</button><span>{Math.floor(elapsed/60).toString().padStart(2,"0")}:{Math.floor(elapsed%60).toString().padStart(2,"0")} <em>/ {Math.floor(duration/60).toString().padStart(2,"0")}:{Math.floor(duration%60).toString().padStart(2,"0")}</em></span><div className="transport-spacer"/><span className="zoom-label">{playing?"PLAYING":"READY"}</span></div>
         <div className="timeline-head"><span>TIMELINE</span><span>{scenes.length} SCENES <b>·</b> {duration.toFixed(1)} SEC</span></div>
         <div className="timeline">
@@ -227,10 +297,10 @@ export default function App() {
         {scenes.map((s,i)=><button key={i} onClick={()=>seekToScene(i)} className={"layer "+(sceneIndex===i?"layer-active":"")}><span className="layer-icon">T</span><span><b>{s.title}</b><small>Text layer · Scene 0{i+1}</small></span><span className="eye">◉</span></button>)}
         <button className="add-layer" onClick={addScene}>＋ Add scene</button>
         <div className="panel-heading section-gap">PROJECT</div>
-        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
+        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
         <div className="export-note">Save Project stores scenes and embedded image, video and audio files inside one JSON project. Large media files can make project files large. Export includes the audio track when browser support allows it.</div>
       </aside>
     </section>
-    <footer><span>CODECINEMA <b>0.3.0</b></span><span>CREATIVE ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
+    <footer><span>CODECINEMA <b>0.4.0</b></span><span>MEDIA ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
   </main>;
 }
