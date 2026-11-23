@@ -153,6 +153,7 @@ export default function App() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const exportCancelledRef = useRef(false);
+  const exportFailedRef = useRef(false);
   const formats: Record<string, [number, number]> = {
     "16:9": quality === "720p" ? [1280, 720] : [1920, 1080],
     "9:16": quality === "720p" ? [720, 1280] : [1080, 1920],
@@ -247,23 +248,28 @@ export default function App() {
     setStatus("PAUSED");
   };
   const stop = () => {
-    if (exporting) {
+    const wasExporting = exporting;
+    if (wasExporting) {
       exportCancelledRef.current = true;
       const recorder = recorderRef.current;
-      if (recorder && recorder.state !== "inactive") recorder.stop();
-      streamRef.current?.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-      recorderRef.current = null;
-      setExporting(false);
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); } catch { /* onstop/error cleanup handles the stream */ }
+      } else {
+        streamRef.current?.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        setExporting(false);
+      }
     }
     setRunning(false);
     elapsedRef.current = 0;
     setElapsed(0);
     drawFrame(0);
-    setStatus(exporting ? "EXPORT CANCELLED" : "READY");
+    setStatus(wasExporting ? "CANCELLING EXPORT…" : "READY");
   };
   const exportVideo = async () => {
     const canvas = canvasRef.current;
+    if (exporting) return;
     if (!canvas?.captureStream || !("MediaRecorder" in window)) {
       setError("WebM recording is not supported by this browser.");
       return;
@@ -276,6 +282,7 @@ export default function App() {
       const recorder = new MediaRecorder(stream, { mimeType: mime });
       const chunks: BlobPart[] = [];
       exportCancelledRef.current = false;
+      exportFailedRef.current = false;
       streamRef.current = stream;
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
       recorder.onstop = () => {
@@ -289,17 +296,15 @@ export default function App() {
         streamRef.current = null;
         recorderRef.current = null;
         setExporting(false);
-        setStatus(exportCancelledRef.current ? "EXPORT CANCELLED" : "EXPORT COMPLETE");
+        const failed = exportFailedRef.current;
+        setStatus(failed ? "EXPORT FAILED" : exportCancelledRef.current ? "EXPORT CANCELLED" : "EXPORT COMPLETE");
+        exportFailedRef.current = false;
       };
       recorder.onerror = () => {
-        exportCancelledRef.current = true;
+        exportFailedRef.current = true;
         setError("Recording failed. Try 720p or a shorter video.");
-        stream.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-        recorderRef.current = null;
         setRunning(false);
-        setExporting(false);
-        setStatus("EXPORT FAILED");
+        setStatus("EXPORT FAILED — CLEANING UP");
       };
       recorderRef.current = recorder;
       setExporting(true);
@@ -310,11 +315,13 @@ export default function App() {
       recorder.start();
       setRunning(true);
     } catch (e) {
+      exportFailedRef.current = true;
       setError(e instanceof Error ? e.message : "Export failed.");
       streamRef.current?.getTracks().forEach(track => track.stop());
       streamRef.current = null;
       recorderRef.current = null;
       setExporting(false);
+      exportFailedRef.current = false;
       setStatus("EXPORT FAILED");
     }
   };
@@ -375,9 +382,9 @@ export default function App() {
           <span>{Math.max(0, duration - elapsed).toFixed(1)}s left</span>
         </div>
         <div className="render-settings">
-          <label>FORMAT <select value={format} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
-          <label>QUALITY <select value={quality} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
-          <label>DURATION <select value={duration} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
+          <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
+          <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
+          <label>DURATION <select value={duration} disabled={exporting} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
           <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
         </div>
       </section>
