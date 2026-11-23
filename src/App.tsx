@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type Transition = "fade" | "slide" | "zoom" | "none";
 type Scene = { title: string; subtitle: string; duration: number; accent: string; transition: Transition };
-type Project = { version: 1; format: string; font: string; textColor: string; backgroundImage: string | null; scenes: Scene[] };
+type Project = { version: 1 | 2; format: string; font: string; textColor: string; backgroundImage: string | null; videoBackground?: string | null; audioTrack?: string | null; scenes: Scene[] };
 const initialScenes: Scene[] = [
   { title: "MAKE IT", subtitle: "A STORY WORTH WATCHING", duration: 4, accent: "#b5ff6d", transition: "fade" },
   { title: "MOVE", subtitle: "BEYOND THE ORDINARY", duration: 4, accent: "#8b9cff", transition: "slide" },
@@ -18,11 +18,11 @@ export default function App() {
   const [format,setFormat]=useState("16:9");
   const [font,setFont]=useState("Manrope");
   const [textColor,setTextColor]=useState("#ffffff");
-  const [backgroundImage,setBackgroundImage]=useState<string|null>(null);
+  const [backgroundImage,setBackgroundImage]=useState<string|null>(null);\n  const [videoBackground,setVideoBackground]=useState<string|null>(null);\n  const [audioTrack,setAudioTrack]=useState<string|null>(null);
   const [exporting,setExporting]=useState(false);
   const [elapsed,setElapsed]=useState(0);
   const canvasRef=useRef<HTMLCanvasElement>(null);
-  const imageRef=useRef<HTMLImageElement|null>(null);
+  const imageRef=useRef<HTMLImageElement|null>(null);\n  const videoRef=useRef<HTMLVideoElement>(null);\n  const audioRef=useRef<HTMLAudioElement>(null);\n  const audioContextRef=useRef<AudioContext|null>(null);\n  const audioSourceRef=useRef<MediaElementAudioSourceNode|null>(null);
   const rafRef=useRef<number>(0);
   const startRef=useRef(0);
   const importRef=useRef<HTMLInputElement>(null);
@@ -125,7 +125,7 @@ export default function App() {
     setScenes(old=>old.map((s,i)=>i===selected?{...s,[key]:key==="duration"?Math.max(1,Math.min(30,Number(value)||1)):value}:s));
   };
   const saveProject=()=>{
-    const project:Project={version:1,format,font,textColor,backgroundImage,scenes};
+    const project:Project={version:2,format,font,textColor,backgroundImage,videoBackground,audioTrack,scenes};
     const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],{type:"application/json"}));
     const a=document.createElement("a");a.href=url;a.download="codec cinema-project.json";a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -133,15 +133,15 @@ export default function App() {
   const loadProject=async(file:File)=>{
     try{
       const data=JSON.parse(await file.text()) as Project;
-      if(data.version!==1||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
+      if((data.version!==1&&data.version!==2)||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
       setScenes(data.scenes);setFormat(formats[data.format]?data.format:"16:9");
       setFont(fonts.includes(data.font)?data.font:"Manrope");
       setTextColor(/^#[0-9a-f]{6}$/i.test(data.textColor)?data.textColor:"#ffffff");
-      setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);
+      setBackgroundImage(typeof data.backgroundImage==="string"?data.backgroundImage:null);\n      setVideoBackground(typeof data.videoBackground==="string"?data.videoBackground:null);\n      setAudioTrack(typeof data.audioTrack==="string"?data.audioTrack:null);
       setSelected(0);setElapsed(0);setPlaying(false);
     }catch{alert("This project file is invalid or unsupported.");}
   };
-  const exportVideo=()=>{
+  const exportVideo=async()=>{
     const canvas=canvasRef.current;
     if(!canvas||!canvas.captureStream||!("MediaRecorder" in window)){alert("WebM export is not supported in this browser.");return;}
     const mime=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].find(m=>MediaRecorder.isTypeSupported(m));
@@ -155,10 +155,20 @@ export default function App() {
       const url=URL.createObjectURL(new Blob(chunks,{type:"video/webm"}));
       const a=document.createElement("a");a.href=url;a.download="codec-cinema.webm";a.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
-      stream.getTracks().forEach(track=>track.stop());setExporting(false);
+      stream.getTracks().forEach(track=>track.stop());audioDestination?.stream.getTracks().forEach(track=>track.stop());if(audioDestination&&audioSourceRef.current)audioSourceRef.current.disconnect(audioDestination);setExporting(false);
     };
     recorder.start();
     window.setTimeout(()=>{if(recorder.state!=="inactive")recorder.stop();setPlaying(false);},duration*1000+350);
+  };
+  const mediaUpload=(file:File|undefined,kind:"video"|"audio")=>{
+    if(!file)return;
+    const allowed=kind==="video"?file.type.startsWith("video/"):file.type.startsWith("audio/");
+    const limit=kind==="video"?30:20;
+    if(!allowed){alert(`Choose a ${kind} file.`);return;}
+    if(file.size>limit*1024*1024){alert(`Please use a ${kind} smaller than ${limit} MB.`);return;}
+    const reader=new FileReader();
+    reader.onload=()=>kind==="video"?setVideoBackground(String(reader.result)):setAudioTrack(String(reader.result));
+    reader.readAsDataURL(file);
   };
   const imageUpload=(file?:File)=>{
     if(!file)return;
@@ -186,6 +196,12 @@ export default function App() {
         <div className="panel-heading section-gap">BACKGROUND</div>
         <label className="upload-control">＋ ADD IMAGE<input type="file" accept="image/*" onChange={e=>imageUpload(e.target.files?.[0])}/></label>
         {backgroundImage&&<button className="clear-btn" onClick={()=>setBackgroundImage(null)}>Remove background image</button>}
+        <div className="panel-heading section-gap">VIDEO BACKGROUND</div>
+        <label className="upload-control">＋ ADD VIDEO<input type="file" accept="video/*" onChange={e=>mediaUpload(e.target.files?.[0],"video")}/></label>
+        {videoBackground&&<button className="clear-btn" onClick={()=>setVideoBackground(null)}>Remove video background</button>}
+        <div className="panel-heading section-gap">AUDIO TRACK</div>
+        <label className="upload-control">＋ ADD MUSIC / AUDIO<input type="file" accept="audio/*" onChange={e=>mediaUpload(e.target.files?.[0],"audio")}/></label>
+        {audioTrack&&<button className="clear-btn" onClick={()=>setAudioTrack(null)}>Remove audio track</button>}
         <div className="panel-heading section-gap">SCENE SETTINGS</div>
         <label className="field-label">HEADLINE</label><input value={current.title} onChange={e=>update("title",e.target.value)} maxLength={28}/>
         <label className="field-label">SUBTITLE</label><input value={current.subtitle} onChange={e=>update("subtitle",e.target.value)} maxLength={38}/>
@@ -196,7 +212,7 @@ export default function App() {
       </aside>
       <section className="center-panel">
         <div className="preview-toolbar"><span>PREVIEW <i>LIVE</i></span><span>{width} × {height} <b>·</b> 30 FPS</span></div>
-        <div className="stage-wrap"><div className="stage" style={{aspectRatio:`${width}/${height}`}}><canvas ref={canvasRef} width={width} height={height}/></div></div>
+        <div className="stage-wrap"><div className="stage" style={{aspectRatio:`${width}/${height}`}}><canvas ref={canvasRef} width={width} height={height}/></div></div>\n        <video ref={videoRef} muted loop playsInline style={{display:"none"}}/><audio ref={audioRef} preload="auto" style={{display:"none"}}/>
         <div className="transport"><button onClick={()=>{setElapsed(0);setSelected(0);setPlaying(false)}} title="Go to start">↤</button><button className="play-button" onClick={()=>{if(elapsed>=duration){setElapsed(0);setSelected(0)}setPlaying(!playing)}}>{playing?"Ⅱ":"▶"}</button><span>{Math.floor(elapsed/60).toString().padStart(2,"0")}:{Math.floor(elapsed%60).toString().padStart(2,"0")} <em>/ {Math.floor(duration/60).toString().padStart(2,"0")}:{Math.floor(duration%60).toString().padStart(2,"0")}</em></span><div className="transport-spacer"/><span className="zoom-label">{playing?"PLAYING":"READY"}</span></div>
         <div className="timeline-head"><span>TIMELINE</span><span>{scenes.length} SCENES <b>·</b> {duration.toFixed(1)} SEC</span></div>
         <div className="timeline">
@@ -211,8 +227,8 @@ export default function App() {
         {scenes.map((s,i)=><button key={i} onClick={()=>seekToScene(i)} className={"layer "+(sceneIndex===i?"layer-active":"")}><span className="layer-icon">T</span><span><b>{s.title}</b><small>Text layer · Scene 0{i+1}</small></span><span className="eye">◉</span></button>)}
         <button className="add-layer" onClick={addScene}>＋ Add scene</button>
         <div className="panel-heading section-gap">PROJECT</div>
-        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
-        <div className="export-note">Save Project downloads a JSON project file. Open Project restores your scenes, design settings and embedded background image.</div>
+        <div className="export-setting"><span>Scenes</span><b>{scenes.length}</b></div><div className="export-setting"><span>Total length</span><b>{duration}s</b></div><div className="export-setting"><span>Media</span><b>{videoBackground?"Video · ":""}{audioTrack?"Audio":"—"}</b></div><div className="export-setting"><span>Export</span><b>WebM · 30 FPS</b></div>
+        <div className="export-note">Save Project stores scenes and embedded image, video and audio files inside one JSON project. Large media files can make project files large. Export includes the audio track when browser support allows it.</div>
       </aside>
     </section>
     <footer><span>CODECINEMA <b>0.3.0</b></span><span>CREATIVE ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
