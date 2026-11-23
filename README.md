@@ -7,15 +7,16 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
-- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, and `roundedRect(ctx, x, y, width, height, radius)`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
+- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, `spring`, `cubicBezier`, `stagger`, `counter`, `pathPoint`, and `roundedRect(ctx, x, y, width, height, radius)`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
 ## Features
+- Motion graphics engine: damped spring physics, custom cubic-Bezier easing, staggered sequences, animated number counters and smooth Catmull–Rom path following with tangent angles
 - Typography engine: staggered character/word reveals, fade/rise/tracking modes, timed typewriter text and directional gradient text masks
 - Cinematic effects helpers: radial glow, vignette, deterministic particles, film grain and color wash
 - Camera helpers: deterministic shake offsets and scoped camera transforms
-- Built-in Cinematic Effects and Kinetic Typography demos to explore the rendering APIs
+- Built-in Motion Graphics Lab, Cinematic Effects and Kinetic Typography demos to explore the rendering APIs
 - Timed scene helper with local scene time, normalized progress and fade, slide or zoom transitions
 - Scene callbacks are deterministic and render consistently in preview and export
 - Named projects with portable `.cinema.json` save/load, including script and render settings
@@ -23,7 +24,7 @@ Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms 
 - Touch-first mobile workflow with editor/preview tabs, code insertion toolbar, undo/redo and quick action bar; optional keyboard shortcuts are also available
 - Export filenames use the project name
 - JavaScript code editor with local autosave and Tab indentation
-- Run script with Ctrl+Enter / Cmd+Enter
+- Run scripts with the on-screen RUN controls; optional keyboard shortcuts are also available
 - Helpful escaped-code detection and runtime error messages
 - Time-based animation controlled by `t`
 - Canvas typography helpers support custom fonts, alignment, reveal timing, tracking, gradients and optional glow
