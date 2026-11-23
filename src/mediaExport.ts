@@ -34,6 +34,11 @@ export async function renderExport(options: ExportOptions): Promise<Blob> {
     audioFile, isCancelled, onProgress,
   } = options;
 
+  const estimatedVideoBytes = duration * bitrateMbps * 1_000_000 / 8;
+  if (estimatedVideoBytes > 80 * 1024 * 1024) {
+    throw new Error("This export is estimated to exceed the mobile-safe 80 MB memory budget. Reduce duration or bitrate, or export at 720p.");
+  }
+
   const format = container === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat();
   const videoCodec = await getFirstEncodableVideoCodec(
     format.getSupportedVideoCodecs(),
