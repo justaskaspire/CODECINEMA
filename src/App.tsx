@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { renderExport, type ExportContainer } from "./mediaExport";
 
 const starterCode = `// CODECINEMA — your video is a function of time.
 // Available: ctx (Canvas 2D), t (seconds), w (width), h (height)
@@ -157,7 +158,7 @@ function scriptError(error: unknown): string {
 export default function App() {
   const [code, setCode] = useState(() => { try { return localStorage.getItem("codec-2026-script") || starterCode; } catch { return starterCode; } });
   const [example, setExample] = useState("Cinematic title");
-  const [duration, setDuration] = useState(8);
+  const [duration, setDuration] = useState(30);
   const [format, setFormat] = useState("16:9");
   const [quality, setQuality] = useState("720p");
   const [running, setRunning] = useState(false);
@@ -169,6 +170,10 @@ export default function App() {
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [bitrate, setBitrate] = useState(6);
   const [fps, setFps] = useState(30);
+  const [container, setContainer] = useState<ExportContainer>("mp4");
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [webCodecsAvailable, setWebCodecsAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -178,10 +183,7 @@ export default function App() {
   const startRef = useRef(0);
   const lastFrameAtRef = useRef(0);
   const elapsedRef = useRef(0);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const exportCancelledRef = useRef(false);
-  const exportFailedRef = useRef(false);
+  const cancelExportRef = useRef(false);
   const formats: Record<string, [number, number]> = {
     "16:9": quality === "720p" ? [1280, 720] : [1920, 1080],
     "9:16": quality === "720p" ? [720, 1280] : [1080, 1920],
@@ -191,6 +193,7 @@ export default function App() {
   const [width, height] = formats[format];
 
   useEffect(() => {
+    setWebCodecsAvailable("VideoEncoder" in window);
     setIsInstalled(window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
     const onPrompt = (event: Event) => {
       event.preventDefault();
@@ -238,10 +241,6 @@ export default function App() {
     } catch (e) {
       setError(scriptError(e));
       setRunning(false);
-      if (recorderRef.current?.state === "recording") {
-        exportFailedRef.current = true;
-        try { recorderRef.current.stop(); } catch { /* recorder cleanup follows */ }
-      }
       setStatus("SCRIPT ERROR");
     }
   }, []);
@@ -310,90 +309,74 @@ export default function App() {
     setStatus("PAUSED");
   };
   const stop = () => {
-    const wasExporting = exporting;
-    if (wasExporting) {
-      exportCancelledRef.current = true;
-      const recorder = recorderRef.current;
-      if (recorder && recorder.state !== "inactive") {
-        try { recorder.stop(); } catch { /* onstop/error cleanup handles the stream */ }
-      } else {
-        streamRef.current?.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-        recorderRef.current = null;
-        setExporting(false);
-      }
+    if (exporting) {
+      cancelExportRef.current = true;
+      setStatus("CANCELLING EXPORT…");
+      return;
     }
     setRunning(false);
     elapsedRef.current = 0;
     setElapsed(0);
     drawFrame(0);
-    setStatus(wasExporting ? "CANCELLING EXPORT…" : "READY");
+    setStatus("READY");
   };
   const exportVideo = async () => {
     const canvas = canvasRef.current;
-    if (exporting) return;
-    if (!canvas?.captureStream || !("MediaRecorder" in window)) {
-      setError("WebM recording is not supported by this browser.");
-      return;
-    }
+    if (exporting || !canvas) return;
     try {
       renderRef.current = compile(code);
-      const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(type => MediaRecorder.isTypeSupported(type));
-      if (!mime) throw new Error("This browser does not support WebM encoding.");
-      const stream = canvas.captureStream(fps);
-      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate * 1_000_000 });
-      const chunks: BlobPart[] = [];
-      exportCancelledRef.current = false;
-      exportFailedRef.current = false;
-      streamRef.current = stream;
-      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = () => {
-        if (!exportCancelledRef.current && chunks.length) {
-          const url = URL.createObjectURL(new Blob(chunks, { type: mime }));
-          const a = document.createElement("a");
-          a.href = url; a.download = "codec-cinema.webm"; a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1500);
-        }
-        stream.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-        recorderRef.current = null;
-        setExporting(false);
-        const failed = exportFailedRef.current;
-        setStatus(failed ? "EXPORT FAILED" : exportCancelledRef.current ? "EXPORT CANCELLED" : "EXPORT COMPLETE");
-        exportFailedRef.current = false;
-      };
-      recorder.onerror = () => {
-        exportFailedRef.current = true;
-        setError("Recording failed. Try 720p or a shorter video.");
-        setRunning(false);
-        setStatus("EXPORT FAILED — CLEANING UP");
-        if (recorder.state !== "inactive") {
-          try { recorder.stop(); } catch { /* browser may already have stopped it */ }
-        } else {
-          stream.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-          recorderRef.current = null;
-          setExporting(false);
-          setStatus("EXPORT FAILED");
-        }
-      };
-      recorderRef.current = recorder;
+      cancelExportRef.current = false;
       setExporting(true);
-      setStatus("RENDERING");
+      setRenderProgress(0);
+      setError("");
+      setRunning(false);
+      setStatus("PREPARING WEB CODECS");
       elapsedRef.current = 0;
       setElapsed(0);
-      drawFrame(0);
-      recorder.start();
-      setRunning(true);
+
+      const blob = await renderExport({
+        canvas,
+        duration,
+        fps,
+        bitrateMbps: bitrate,
+        container,
+        audioFile,
+        isCancelled: () => cancelExportRef.current,
+        onProgress: progress => {
+          setRenderProgress(progress);
+          setStatus(`RENDERING ${Math.round(progress * 100)}%`);
+        },
+        renderFrame: time => {
+          const ctx = canvas.getContext("2d");
+          if (!ctx || !renderRef.current) throw new Error("The preview canvas is unavailable.");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          renderRef.current(ctx, time, canvas.width, canvas.height, api);
+          elapsedRef.current = time;
+          setElapsed(time);
+        },
+      });
+
+      if (cancelExportRef.current) throw new DOMException("Export cancelled", "AbortError");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `codec-cinema.${container}`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+      setRenderProgress(1);
+      elapsedRef.current = duration;
+      setElapsed(duration);
+      setStatus("EXPORT COMPLETE");
     } catch (e) {
-      exportFailedRef.current = true;
-      setError(scriptError(e));
-      streamRef.current?.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-      recorderRef.current = null;
+      if ((e instanceof DOMException && e.name === "AbortError") || cancelExportRef.current) {
+        setStatus("EXPORT CANCELLED");
+      } else {
+        setError(e instanceof Error ? e.message : "The export failed unexpectedly.");
+        setStatus("EXPORT FAILED");
+      }
+    } finally {
       setExporting(false);
-      exportFailedRef.current = false;
-      setStatus("EXPORT FAILED");
+      cancelExportRef.current = false;
     }
   };
   const downloadScript = () => {
@@ -417,7 +400,7 @@ export default function App() {
         {!isInstalled && <button className="button install-button" onClick={() => void installApp()}>↓ INSTALL APP</button>}\n        {isInstalled && <span className="installed-badge">✓ INSTALLED</span>}
         <label className="button secondary">OPEN SCRIPT<input hidden type="file" accept=".js,.txt,text/javascript" onChange={e => { void openScript(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
         <button className="button secondary" onClick={downloadScript}>SAVE .JS</button>
-        <button className="button primary" onClick={exportVideo} disabled={exporting}>{exporting ? "RENDERING…" : "↗ EXPORT WEBM"}</button>
+        <button className="button primary" onClick={() => void exportVideo()} disabled={exporting}>{exporting ? `RENDERING ${Math.round(renderProgress * 100)}%` : `↗ EXPORT ${container.toUpperCase()}`}</button>
       </div>
     </header>
 
@@ -472,11 +455,15 @@ export default function App() {
           <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
           <label>DURATION <select value={duration} disabled={exporting} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
           <label>FPS <select value={fps} disabled={exporting} onChange={e => setFps(Number(e.target.value))}><option value={24}>24 · cinematic</option><option value={30}>30 · standard</option><option value={60}>60 · smooth</option></select></label>
+          <label>CONTAINER <select value={container} disabled={exporting} onChange={e => setContainer(e.target.value as ExportContainer)}><option value="mp4">MP4 · H.264</option><option value="webm">WebM · VP9 / VP8</option></select></label>
           <label>BITRATE <select value={bitrate} disabled={exporting} onChange={e => setBitrate(Number(e.target.value))}><option value={4}>4 Mbps · light</option><option value={6}>6 Mbps · balanced</option><option value={8}>8 Mbps · high</option><option value={12}>12 Mbps · max</option></select></label>
-          <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
+          <label className="button secondary audio-picker">♫ ADD MUSIC<input hidden type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.opus" disabled={exporting} onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 50 * 1024 * 1024) setError("Choose an audio file smaller than 50 MB."); else if (file) { setAudioFile(file); setError(""); } e.currentTarget.value = ""; }} /></label>
+          {audioFile && <span className="audio-name">♪ {audioFile.name}<button type="button" onClick={() => setAudioFile(null)} disabled={exporting} aria-label="Remove music">×</button></span>}
+          {exporting && <div className="render-progress" role="progressbar" aria-valuenow={Math.round(renderProgress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${renderProgress * 100}%` }} /></div>}
+          <div className="render-note"><span>●</span> {webCodecsAvailable ? "WebCodecs ready · local MP4 / WebM" : "WebCodecs unavailable · check Chrome version"} · No cloud rendering.</div>
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.11.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
+    <footer><span>CODECINEMA <b>0.12.0 / WEB CODECS ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
   </main>;
 }
