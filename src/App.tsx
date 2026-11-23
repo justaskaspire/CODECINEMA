@@ -121,7 +121,15 @@ const api = {
   }
 };
 
-type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: typeof api) => void;
+type CinemaApi = {
+  clamp: (v: number, min?: number, max?: number) => number;
+  lerp: (a: number, b: number, p: number) => number;
+  ease: (p: number) => number;
+  easeOut: (p: number) => number;
+  map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => number;
+  roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius?: number) => void;
+};
+type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: CinemaApi) => void;
 
 export default function App() {
   const [code, setCode] = useState(() => { try { return localStorage.getItem("codec-2026-script") || starterCode; } catch { return starterCode; } });
