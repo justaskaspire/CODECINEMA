@@ -150,7 +150,7 @@ function scriptError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error || "Unknown script error");
   if (/&lt;|&gt;|&amp;|&#91;|&#93;|\\\*/i.test(message)) return "Your code may contain HTML-escaped symbols. Use real JavaScript characters (<, >, &, [, ], *) and paste the raw code.";
   const stack = error instanceof Error ? error.stack || "" : "";
-  const location = stack.match(/codec-cinema-user-script:(\\d+):(\\d+)/);
+  const location = stack.match(/codec-cinema-user-script:(\d+):(\d+)/);
   if (location) return `Line ${location[1]}, column ${location[2]}: ${message}`;
   return message;
 }
@@ -176,6 +176,8 @@ export default function App() {
   const [webCodecsAvailable, setWebCodecsAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [projectName, setProjectName] = useState("Untitled Cinema");
+  const projectInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
   const renderRef = useRef<RenderFunction | null>(null);
@@ -220,7 +222,30 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); } catch { /* storage may be unavailable */ } }, [code]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); } catch { /* storage may be unavailable */ } }, [code, projectName]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = !!target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.tagName === "SELECT" || target.isContentEditable);
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault(); saveProject(); return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o") {
+        event.preventDefault(); projectInputRef.current?.click(); return;
+      }
+      if (event.key === "Escape") {
+        if (previewExpanded) setPreviewExpanded(false);
+        else if (editorExpanded) setEditorExpanded(false);
+        return;
+      }
+      if (!typing && event.code === "Space" && !exporting) {
+        event.preventDefault(); running ? pause() : play();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const compile = useCallback((source: string) => {
     // Scripts are user-authored and execute locally in this browser tab.
@@ -378,6 +403,54 @@ export default function App() {
       cancelExportRef.current = false;
     }
   };
+  const safeFileName = (name: string) => (name.trim() || "codec-cinema").replace(/[^a-z0-9-_]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "codec-cinema";
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  };
+  const saveProject = () => {
+    const project = {
+      app: "CODECINEMA",
+      schemaVersion: 1,
+      savedAt: new Date().toISOString(),
+      name: projectName,
+      code,
+      settings: { duration, format, quality, fps, container, bitrate }
+    };
+    downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
+    setStatus("PROJECT SAVED");
+  };
+  const openProject = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 1_000_000) { setError("Project files must be smaller than 1 MB."); return; }
+    try {
+      const project = JSON.parse(await file.text()) as {
+        app?: string; schemaVersion?: number; name?: string; code?: string;
+        settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
+      };
+      if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
+        throw new Error("This is not a supported CODECINEMA project file.");
+      }
+      const settings = project.settings || {};
+      setCode(project.code);
+      setProjectName(typeof project.name === "string" ? project.name.slice(0, 60) : "Imported Cinema");
+      if ([5,8,10,15,20,30,45,60].includes(settings.duration || 0)) setDuration(settings.duration!);
+      if (["16:9","9:16","1:1","4:5"].includes(settings.format || "")) setFormat(settings.format!);
+      if (["720p","1080p"].includes(settings.quality || "")) setQuality(settings.quality!);
+      if ([24,30,60].includes(settings.fps || 0)) setFps(settings.fps!);
+      if (settings.container === "mp4" || settings.container === "webm") setContainer(settings.container);
+      if ([4,6,8,12].includes(settings.bitrate || 0)) setBitrate(settings.bitrate!);
+      setExample("");
+      setError("");
+      setElapsed(0); elapsedRef.current = 0;
+      setStatus("PROJECT LOADED — PRESS RUN");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open this project file.");
+      setStatus("PROJECT IMPORT FAILED");
+    }
+  };
   const downloadScript = () => {
     const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
     const a = document.createElement("a");
@@ -396,6 +469,10 @@ export default function App() {
       <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small></div>
       <div className="top-status"><i /> LOCAL RENDER ENGINE <span>/</span> {status}</div>
       <div className="top-actions">
+        <input ref={projectInputRef} hidden type="file" accept=".json,application/json" onChange={e => { void openProject(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+        <input className="project-name" aria-label="Project name" value={projectName} maxLength={60} onChange={e => setProjectName(e.target.value)} />
+        <button className="button secondary project-button" onClick={saveProject} title="Save complete project (Ctrl+S)">SAVE PROJECT</button>
+        <label className="button secondary project-button">OPEN PROJECT<input hidden type="file" accept=".json,application/json" onChange={e => { void openProject(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
         {!isInstalled && <button className="button install-button" onClick={() => void installApp()}>↓ INSTALL APP</button>}\n        {isInstalled && <span className="installed-badge">✓ INSTALLED</span>}
         <label className="button secondary">OPEN SCRIPT<input hidden type="file" accept=".js,.txt,text/javascript" onChange={e => { void openScript(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
         <button className="button secondary" onClick={downloadScript}>SAVE .JS</button>
@@ -406,7 +483,7 @@ export default function App() {
     <section className="layout">
       <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}`}>
         <div className="section-title"><span>01 / YOUR SCRIPT</span><div className="editor-tools"><button className="expand-editor" onClick={() => setEditorExpanded(v => !v)}>{editorExpanded ? "CLOSE EDITOR" : "EXPAND EDITOR"}</button><span className="live-tag">JAVASCRIPT</span></div></div>
-        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>
+        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Auto-saved locally · Ctrl+Enter to run · Ctrl+S to save project · Space to play/pause.</div>
         <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
         <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
@@ -473,10 +550,10 @@ export default function App() {
           <label className="button secondary audio-picker">♫ ADD MUSIC<input hidden type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.opus" disabled={exporting} onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 50 * 1024 * 1024) setError("Choose an audio file smaller than 50 MB."); else if (file) { setAudioFile(file); setError(""); } e.currentTarget.value = ""; }} /></label>
           {audioFile && <span className="audio-name">♪ {audioFile.name}<button type="button" onClick={() => setAudioFile(null)} disabled={exporting} aria-label="Remove music">×</button></span>}
           {exporting && <div className="render-progress" role="progressbar" aria-valuenow={Math.round(renderProgress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${renderProgress * 100}%` }} /></div>}
-          <div className="render-note"><span>●</span> {webCodecsAvailable ? "WebCodecs ready · local MP4 / WebM" : "WebCodecs unavailable · check Chrome version"} · No cloud rendering.</div>
+          <div className="render-note"><span>●</span> {webCodecsAvailable ? "WebCodecs ready · local MP4 / WebM" : "WebCodecs unavailable · check Chrome version"} · {Math.ceil(duration * fps).toLocaleString()} frames · No cloud rendering.</div>
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.12.0 / WEB CODECS ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
+    <footer><span>CODECINEMA <b>0.13.0 / CREATOR STUDIO</b></span><span>CTRL+ENTER RUN · SPACE PLAY · CTRL+S SAVE PROJECT</span></footer>
   </main>;
 }
