@@ -177,6 +177,11 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [projectName, setProjectName] = useState(() => { try { return localStorage.getItem("codec-2026-project-name") || "Untitled Cinema"; } catch { return "Untitled Cinema"; } });
+  const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const historyRef = useRef<string[]>([code]);
+  const historyIndexRef = useRef(0);
   const projectInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
@@ -223,6 +228,44 @@ export default function App() {
   };
 
   useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); } catch { /* storage may be unavailable */ } }, [code, projectName]);
+
+  const changeCode = (next: string) => {
+    const history = historyRef.current;
+    if (history[historyIndexRef.current] !== next) {
+      const trimmed = history.slice(0, historyIndexRef.current + 1);
+      trimmed.push(next);
+      if (trimmed.length > 60) trimmed.shift();
+      historyRef.current = trimmed;
+      historyIndexRef.current = trimmed.length - 1;
+      setHistoryState({ canUndo: trimmed.length > 1, canRedo: false });
+    }
+    setCode(next);
+  };
+  const undoCode = () => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    setCode(historyRef.current[historyIndexRef.current]);
+    setHistoryState({ canUndo: historyIndexRef.current > 0, canRedo: true });
+  };
+  const redoCode = () => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current += 1;
+    setCode(historyRef.current[historyIndexRef.current]);
+    setHistoryState({ canUndo: true, canRedo: historyIndexRef.current < historyRef.current.length - 1 });
+  };
+  const insertCode = (snippet: string, pair = false) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const start = editor.selectionStart, end = editor.selectionEnd;
+    const selected = code.slice(start, end);
+    const insertion = pair ? snippet[0] + selected + snippet[1] : snippet;
+    changeCode(code.slice(0, start) + insertion + code.slice(end));
+    requestAnimationFrame(() => {
+      editor.focus();
+      const cursor = pair ? start + 1 : start + insertion.length;
+      editor.setSelectionRange(cursor, pair && selected ? cursor + selected.length : cursor);
+    });
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -480,12 +523,31 @@ export default function App() {
       </div>
     </header>
 
+    <nav className="mobile-tabs" aria-label="Studio sections">
+      <button type="button" className={mobileTab === "editor" ? "active" : ""} onClick={() => setMobileTab("editor")}>01 · CODE</button>
+      <button type="button" className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>02 · PREVIEW</button>
+    </nav>
     <section className="layout">
-      <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}`}>
+      <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}${mobileTab === "preview" ? " mobile-hidden" : ""}`}>
         <div className="section-title"><span>01 / YOUR SCRIPT</span><div className="editor-tools"><button className="expand-editor" onClick={() => setEditorExpanded(v => !v)}>{editorExpanded ? "CLOSE EDITOR" : "EXPAND EDITOR"}</button><span className="live-tag">JAVASCRIPT</span></div></div>
-        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Auto-saved locally · Ctrl+Enter to run · Ctrl+S to save project · Space to play/pause.</div>
+        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Auto-saved on this device.</div>
+        <div className="mobile-code-tools" aria-label="Code insertion tools">
+          <button type="button" onClick={() => insertCode("{}", true)}>{`{ }`}</button>
+          <button type="button" onClick={() => insertCode("()", true)}>( )</button>
+          <button type="button" onClick={() => insertCode("[]", true)}>[ ]</button>
+          <button type="button" onClick={() => insertCode(" => ")}>{"=>"}</button>
+          <button type="button" onClick={() => insertCode(";")}>;</button>
+          <button type="button" onClick={() => insertCode(" = ")}>=</button>
+          <button type="button" onClick={() => insertCode("ctx.")}>ctx.</button>
+          <button type="button" onClick={() => insertCode("Math.sin(t)")}>sin(t)</button>
+        </div>
+        <div className="history-tools">
+          <button type="button" className="button secondary" onClick={undoCode} disabled={!historyState.canUndo}>↶ UNDO</button>
+          <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
+          <span>EDIT HISTORY</span>
+        </div>
         <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
-        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => {
+        <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
             e.preventDefault();
@@ -495,7 +557,7 @@ export default function App() {
           }
         }} aria-label="JavaScript video script" />
         <div className="editor-actions">
-          <button className="button primary run-button" onClick={runCode}>▶ RUN SCRIPT</button>
+          <button className="button primary run-button" onClick={() => { runCode(); setMobileTab("preview"); }}>▶ RUN & PREVIEW</button>
           <button className="button secondary" onClick={() => { setCode(""); setExample(""); setError(""); setStatus("EDITOR CLEARED — PASTE NEW CODE"); }}>RESET</button>
         </div>
         {error && <div className="error-box"><b>CODE ERROR</b><span>{error}</span></div>}
@@ -516,7 +578,7 @@ export default function App() {
         </div>
       </section>
 
-      <section className="preview-panel">
+      <section className={`preview-panel${mobileTab === "editor" ? " mobile-hidden" : ""}`}>
         <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><div className="preview-head-actions"><span className="resolution">{width} × {height} <b>{fps} FPS TARGET</b></span><button className="expand-editor" onClick={() => setPreviewExpanded(v => !v)}>{previewExpanded ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button></div></div>
         <div className={`canvas-frame${previewExpanded ? " preview-expanded" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}>
           <canvas ref={canvasRef} />
@@ -554,6 +616,12 @@ export default function App() {
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.13.0 / CREATOR STUDIO</b></span><span>CTRL+ENTER RUN · SPACE PLAY · CTRL+S SAVE PROJECT</span></footer>
+    <nav className="mobile-action-bar" aria-label="Quick actions">
+      <button type="button" onClick={() => { runCode(); setMobileTab("preview"); }} disabled={exporting}>▶ RUN</button>
+      <button type="button" onClick={() => { running ? pause() : play(); setMobileTab("preview"); }} disabled={exporting}>{running ? "Ⅱ PAUSE" : "▶ PLAY"}</button>
+      <button type="button" onClick={saveProject}>↓ SAVE</button>
+      <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
+    </nav>
+    <footer><span>CODECINEMA <b>0.14.0 / MOBILE STUDIO</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
