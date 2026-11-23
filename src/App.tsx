@@ -22,7 +22,6 @@ export default function App() {
   const [backgroundImage,setBackgroundImage]=useState<string|null>(null);
   const [videoBackground,setVideoBackground]=useState<string|null>(null);
   const [audioTrack,setAudioTrack]=useState<string|null>(null);
-  const [extraLayers,setExtraLayers]=useState<TextLayer[]>([]);
   const [activeLayer,setActiveLayer]=useState<string|null>(null);
   const [audioVolume,setAudioVolume]=useState(0.8);
   const [exporting,setExporting]=useState(false);
