@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Transition = "fade" | "slide" | "zoom" | "none";
-type TextLayer = { id: string; text: string; x: number; y: number; size: number; color: string };
+type LayerAnimation = "fade" | "rise" | "zoom" | "none";
+type TextLayer = { id: string; text: string; x: number; y: number; size: number; color: string; animation?: LayerAnimation; delay?: number };
 type Scene = { title: string; subtitle: string; duration: number; accent: string; transition: Transition; layers?: TextLayer[] };
-type Project = { version: 1 | 2; format: string; font: string; textColor: string; backgroundImage: string | null; videoBackground?: string | null; audioTrack?: string | null; scenes: Scene[] };
+type Project = { version: 1 | 2 | 3; format: string; font: string; textColor: string; backgroundImage: string | null; videoBackground?: string | null; audioTrack?: string | null; scenes: Scene[] };
 const initialScenes: Scene[] = [
   { title: "MAKE IT", subtitle: "A STORY WORTH WATCHING", duration: 4, accent: "#b5ff6d", transition: "fade" },
   { title: "MOVE", subtitle: "BEYOND THE ORDINARY", duration: 4, accent: "#8b9cff", transition: "slide" },
@@ -165,9 +166,16 @@ export default function App() {
       ctx.fillText(scene.subtitle.toUpperCase(),0,h*.16,w*.82);
       ctx.restore();
       for(const layer of (scenes[sceneIndex]?.layers??[])){
-        ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=layer.color;ctx.textAlign="center";ctx.textBaseline="middle";
+        const layerTime=Math.max(0,localTime-(layer.delay??0));
+        const layerProgress=Math.min(1,layerTime/.55);
+        const layerEase=1-Math.pow(1-layerProgress,3);
+        const animation=layer.animation??"fade";
+        const layerAlpha=animation==="none"?1:layerEase;
+        const layerY=animation==="rise"?(1-layerEase)*h*.035:0;
+        const layerScale=animation==="zoom"?.78+layerEase*.22:1;
+        ctx.save();ctx.globalAlpha=layerAlpha;ctx.translate(w*layer.x/100,h*layer.y/100+layerY);ctx.scale(layerScale,layerScale);ctx.fillStyle=layer.color;ctx.textAlign="center";ctx.textBaseline="middle";
         ctx.font=`700 ${Math.max(14,Math.min(240,layer.size*(w/1920)))}px ${font}, system-ui, sans-serif`;
-        ctx.fillText(layer.text,w*layer.x/100,h*layer.y/100,w*.86);ctx.restore();
+        ctx.fillText(layer.text,0,0,w*.86);ctx.restore();
       }
       ctx.fillStyle="#ffffff90";ctx.textAlign="center";ctx.font=`500 ${Math.max(12,w*.012)}px ${font}, system-ui, sans-serif`;
       ctx.fillText("A CODECINEMA ORIGINAL",w/2,h*.88);
@@ -191,7 +199,7 @@ export default function App() {
     setScenes(old=>old.map((s,i)=>i===selected?{...s,[key]:key==="duration"?Math.max(1,Math.min(30,Number(value)||1)):value}:s));
   };
   const addTextLayer=()=>{
-    const layer:TextLayer={id:`layer-${Date.now()}`,text:"YOUR TEXT",x:50,y:72,size:64,color:"#ffffff"};
+    const layer:TextLayer={id:`layer-${Date.now()}`,text:"YOUR TEXT",x:50,y:72,size:64,color:"#ffffff",animation:"rise",delay:0};
     setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:[...(scene.layers??[]),layer]}:scene));setActiveLayer(layer.id);
   };
   const updateTextLayer=(key:keyof Omit<TextLayer,"id">,value:string)=>{
@@ -202,7 +210,7 @@ export default function App() {
     setScenes(old=>old.map((scene,i)=>i===selected?{...scene,layers:(scene.layers??[]).filter(layer=>layer.id!==focusedLayer.id)}:scene));setActiveLayer(null);
   };
   const saveProject=()=>{
-    const project:Project={version:2,format,font,textColor,backgroundImage,videoBackground,audioTrack,scenes};
+    const project:Project={version:3,format,font,textColor,backgroundImage,videoBackground,audioTrack,scenes};
     const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],{type:"application/json"}));
     const a=document.createElement("a");a.href=url;a.download="codec cinema-project.json";a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -210,7 +218,7 @@ export default function App() {
   const loadProject=async(file:File)=>{
     try{
       const data=JSON.parse(await file.text()) as Project;
-      if((data.version!==1&&data.version!==2)||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
+      if((data.version!==1&&data.version!==2&&data.version!==3)||!Array.isArray(data.scenes)||!data.scenes.length)throw new Error("Unsupported project file");
       setScenes(data.scenes);setActiveLayer(null);setFormat(formats[data.format]?data.format:"16:9");
       setFont(fonts.includes(data.font)?data.font:"Manrope");
       setTextColor(/^#[0-9a-f]{6}$/i.test(data.textColor)?data.textColor:"#ffffff");
@@ -302,7 +310,7 @@ export default function App() {
         <div className="panel-heading section-gap">EXTRA TEXT LAYERS</div>
         <button className="add-layer" onClick={addTextLayer}>＋ Add text layer</button>
         {sceneLayers.map(layer=><button key={layer.id} className={"layer "+(focusedLayer?.id===layer.id?"layer-active":"")} onClick={()=>setActiveLayer(layer.id)}><span className="layer-icon">T</span><span><b>{layer.text}</b><small>Overlay text</small></span></button>)}
-        {focusedLayer&&<><label className="field-label">LAYER TEXT</label><input value={focusedLayer.text} maxLength={60} onChange={e=>updateTextLayer("text",e.target.value)}/><label className="field-label">HORIZONTAL · {focusedLayer.x}%</label><input type="range" min="5" max="95" value={focusedLayer.x} onChange={e=>updateTextLayer("x",e.target.value)}/><label className="field-label">VERTICAL · {focusedLayer.y}%</label><input type="range" min="5" max="95" value={focusedLayer.y} onChange={e=>updateTextLayer("y",e.target.value)}/><label className="field-label">SIZE · {focusedLayer.size}</label><input type="range" min="18" max="180" value={focusedLayer.size} onChange={e=>updateTextLayer("size",e.target.value)}/><label className="field-label">LAYER COLOR</label><div className="color-control"><input type="color" value={focusedLayer.color} onChange={e=>updateTextLayer("color",e.target.value)}/><span>{focusedLayer.color.toUpperCase()}</span></div><button className="clear-btn" onClick={removeTextLayer}>Remove selected text layer</button></>}
+        {focusedLayer&&<><label className="field-label">LAYER TEXT</label><input value={focusedLayer.text} maxLength={60} onChange={e=>updateTextLayer("text",e.target.value)}/><label className="field-label">HORIZONTAL · {focusedLayer.x}%</label><input type="range" min="5" max="95" value={focusedLayer.x} onChange={e=>updateTextLayer("x",e.target.value)}/><label className="field-label">VERTICAL · {focusedLayer.y}%</label><input type="range" min="5" max="95" value={focusedLayer.y} onChange={e=>updateTextLayer("y",e.target.value)}/><label className="field-label">SIZE · {focusedLayer.size}</label><input type="range" min="18" max="180" value={focusedLayer.size} onChange={e=>updateTextLayer("size",e.target.value)}/><label className="field-label">LAYER COLOR</label><div className="color-control"><input type="color" value={focusedLayer.color} onChange={e=>updateTextLayer("color",e.target.value)}/><span>{focusedLayer.color.toUpperCase()}</span></div><label className="field-label">ENTRANCE ANIMATION</label><select value={focusedLayer.animation??"fade"} onChange={e=>updateTextLayer("animation",e.target.value)}><option value="fade">Fade in</option><option value="rise">Rise up</option><option value="zoom">Zoom in</option><option value="none">None</option></select><label className="field-label">START DELAY · {(focusedLayer.delay??0).toFixed(1)}s</label><input type="range" min="0" max="3" step="0.1" value={focusedLayer.delay??0} onChange={e=>updateTextLayer("delay",e.target.value)}/><button className="clear-btn" onClick={removeTextLayer}>Remove selected text layer</button></>}
         <div className="tip"><span>✦</span><p><b>Your creative controls.</b><br/>Add a background, tune the typography and choose how each scene enters.</p></div>
       </aside>
       <section className="center-panel">
@@ -327,6 +335,6 @@ export default function App() {
         <div className="export-note">Save Project stores scenes and embedded image, video and audio files inside one JSON project. Large media files can make project files large. Export includes the audio track when browser support allows it.</div>
       </aside>
     </section>
-    <footer><span>CODECINEMA <b>0.5.0</b></span><span>TEXT LAYER ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
+    <footer><span>CODECINEMA <b>0.6.0</b></span><span>ANIMATED TEXT ENGINE <b>✦</b></span><span>NO CLOUD. NO SUBSCRIPTION.</span></footer>
   </main>;
 }
