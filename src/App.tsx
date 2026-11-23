@@ -108,6 +108,36 @@ chars.forEach((c,i)=>{
 });
 ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="16px monospace";
 ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`,
+  "Kinetic typography": `// KINETIC TYPOGRAPHY — animated type, staggered reveals and text masking
+ctx.fillStyle = "#070914"; ctx.fillRect(0,0,w,h);
+const cx=w/2, cy=h/2, unit=Math.min(w,h);
+const pulse=0.5+0.5*Math.sin(t*1.4);
+for(let i=0;i<22;i++){
+  const x=(i/21)*w;
+  ctx.strokeStyle="rgba(120,150,255,"+(0.035+pulse*0.025)+")";
+  ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+}
+api.glow(ctx,cx,cy,unit*0.42,"#4935bd",0.22);
+ctx.textAlign="center"; ctx.textBaseline="middle";
+ctx.fillStyle="#91a4d8"; ctx.font="600 "+(unit*0.026)+"px Arial";
+ctx.fillText("CODE  /  MOTION  /  STORY",cx,cy-unit*0.29);
+api.textReveal(ctx,"MAKE IT MOVE",cx,cy-unit*0.08,api.smoothstep(0.04,0.72,t/5),{
+  font:"900 "+(unit*0.105)+"px Arial",color:"#f7f8ff",align:"center",
+  mode:"chars",stagger:0.045,tracking:1.5,shadowColor:"#6d5cff",shadowBlur:22
+});
+api.textReveal(ctx,"EVERY FRAME HAS A PURPOSE",cx,cy+unit*0.09,api.smoothstep(0,1,(t-1.2)/4),{
+  font:"600 "+(unit*0.027)+"px Arial",color:"#aeb9df",align:"center",
+  mode:"rise",stagger:0.018
+});
+const maskP=api.smoothstep(0,1,(t-5)/2.5);
+api.textMask(ctx,"CODECINEMA",cx,cy+unit*0.28,maskP,{
+  font:"800 "+(unit*0.065)+"px Arial",align:"center",
+  colors:["#48e5ff","#a78bfa","#ff72c6"],direction:"left"
+});
+ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="500 "+(unit*0.019)+"px Arial";
+ctx.fillText("A CODE-DRIVEN MOTION STUDIO",cx,cy+unit*0.39);
+api.vignette(ctx,0.62);
+api.grain(ctx,t,0.045,120);`,
   "Cinematic effects": `// CINEMATIC EFFECTS — glow, particles, camera movement, grading and film finish
 ctx.fillStyle = "#050812"; ctx.fillRect(0,0,w,h);
 const shake = api.shake(t, 3, 18);
@@ -167,6 +197,38 @@ const api = {
   random: (seed = 1) => { const n = Math.sin(seed * 127.1 + 311.7) * 43758.5453123; return n - Math.floor(n); },
   noise: (x: number, y = 0) => { const hash = (a: number, b: number) => { const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return n - Math.floor(n); }; const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1); const top = a + (b-a)*sx, bottom = c + (d-c)*sx; return top + (bottom-top)*sy; },
   hsla: (h: number, s = 100, l = 50, a = 1) => `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${a})`,
+  textReveal: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options: { font?: string; color?: string; align?: CanvasTextAlign; mode?: "chars" | "words" | "fade" | "rise" | "tracking"; stagger?: number; tracking?: number; maxWidth?: number; shadowColor?: string; shadowBlur?: number } = {}) => {
+    const value=String(text ?? ""), mode=options.mode ?? "chars";
+    const units=mode==="words" ? (value.match(/\\S+\\s*/g) || []) : Array.from(value);
+    if(!units.length) return;
+    ctx.save(); if(options.font) ctx.font=options.font;
+    if(options.maxWidth && ctx.measureText(value).width>options.maxWidth){ const m=ctx.font.match(/(\\d+(?:\\.\\d+)?)px/); if(m) ctx.font=ctx.font.replace(m[0],(Number(m[1])*options.maxWidth/ctx.measureText(value).width).toFixed(2)+"px"); }
+    const tracking=options.tracking ?? 0, widths=units.map(unit=>ctx.measureText(unit).width);
+    const total=widths.reduce((a,b)=>a+b,0)+tracking*Math.max(0,units.length-1);
+    let cursor=x-(options.align==="center"?total/2:options.align==="right"?total:0);
+    ctx.textAlign="left"; if(options.color) ctx.fillStyle=options.color;
+    if(options.shadowColor){ctx.shadowColor=options.shadowColor;ctx.shadowBlur=options.shadowBlur ?? 16;}
+    const p=Math.max(0,Math.min(1,progress)), stagger=Math.max(0,Math.min(0.2,options.stagger ?? 0.035));
+    const span=Math.max(0.001,1-stagger*Math.max(0,units.length-1));
+    units.forEach((unit,i)=>{ const local=mode==="fade"?p:Math.max(0,Math.min(1,(p-i*stagger)/span)); if(local>0){ctx.globalAlpha*=local; const rise=mode==="rise"?(1-local)*18:mode==="tracking"?(1-local)*12:0; ctx.fillText(unit,cursor,y+rise); ctx.globalAlpha=1;} cursor+=widths[i]+tracking; });
+    ctx.restore();
+  },
+  typewriter: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, time: number, speed = 18, options: { font?: string; color?: string; align?: CanvasTextAlign; cursor?: boolean } = {}) => {
+    const value=String(text ?? ""), count=Math.max(0,Math.min(value.length,Math.floor(Math.max(0,time)*Math.max(0,speed))));
+    ctx.save(); if(options.font) ctx.font=options.font; if(options.color) ctx.fillStyle=options.color; ctx.textAlign=options.align ?? "left";
+    const shown=value.slice(0,count); ctx.fillText(shown,x,y);
+    if(options.cursor && count<value.length && Math.floor(time*2)%2===0){const width=ctx.measureText(shown).width, offset=options.align==="center"?-width/2:options.align==="right"?-width:0, height=ctx.measureText("M").width; ctx.fillRect(x+offset+width+2,y-height*0.72,2,height);}
+    ctx.restore();
+  },
+  textMask: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options: { font?: string; align?: CanvasTextAlign; colors?: string[]; direction?: "left" | "right"; shadowColor?: string; shadowBlur?: number } = {}) => {
+    const value=String(text ?? ""); ctx.save(); if(options.font) ctx.font=options.font;
+    const metrics=ctx.measureText(value), width=metrics.width, left=x-(options.align==="center"?width/2:options.align==="right"?width:0);
+    const p=Math.max(0,Math.min(1,progress)), reveal=width*p, top=y-(metrics.actualBoundingBoxAscent || 24)-8, height=(metrics.actualBoundingBoxAscent || 24)+(metrics.actualBoundingBoxDescent || 6)+16;
+    const gradient=ctx.createLinearGradient(left,0,left+Math.max(1,width),0), colors=options.colors?.length?options.colors:["#55e7ff","#a78bfa","#ff79c6"];
+    colors.forEach((color,i)=>gradient.addColorStop(colors.length===1?0.5:i/(colors.length-1),color));
+    ctx.beginPath(); ctx.rect(options.direction==="right"?left+width-reveal:left,top,reveal,height); ctx.clip();
+    ctx.textAlign="left"; ctx.fillStyle=gradient; if(options.shadowColor){ctx.shadowColor=options.shadowColor;ctx.shadowBlur=options.shadowBlur ?? 18;} ctx.fillText(value,left,y); ctx.restore();
+  },
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize = 10, family = "Arial", weight = "700") => { let current = size; while (current > minSize) { ctx.font = `${weight} ${current}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; current -= 1; } return current; },
   scene: (ctx: CanvasRenderingContext2D, time: number, _name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number } = {}) => {
     if (time < start || time > end || end <= start) return false;
@@ -276,6 +338,9 @@ type CinemaApi = {
   random: (seed?: number) => number;
   noise: (x: number, y?: number) => number;
   hsla: (h: number, s?: number, l?: number, a?: number) => string;
+  textReveal: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options?: { font?: string; color?: string; align?: CanvasTextAlign; mode?: "chars" | "words" | "fade" | "rise" | "tracking"; stagger?: number; tracking?: number; maxWidth?: number; shadowColor?: string; shadowBlur?: number }) => void;
+  typewriter: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, time: number, speed?: number, options?: { font?: string; color?: string; align?: CanvasTextAlign; cursor?: boolean }) => void;
+  textMask: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options?: { font?: string; align?: CanvasTextAlign; colors?: string[]; direction?: "left" | "right"; shadowColor?: string; shadowBlur?: number }) => void;
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize?: number, family?: string, weight?: string) => number;
   scene: (ctx: CanvasRenderingContext2D, time: number, name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options?: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number }) => boolean;
 };
@@ -681,7 +746,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option><option>Cinematic effects</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option><option>Cinematic effects</option><option>Kinetic typography</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -706,6 +771,9 @@ export default function App() {
           <p><code>api.pingPong()</code>, <code>api.mod()</code> — looping motion helpers</p>
           <p><code>api.random(seed)</code>, <code>api.noise(x,y)</code> — repeatable procedural variation</p>
           <p><code>api.hsla()</code>, <code>api.fitText()</code> — color and typography helpers</p>
+          <p><code>api.textReveal(ctx,text,x,y,progress,options)</code> — staggered character/word reveals, fade, rise and tracking</p>
+          <p><code>api.typewriter(ctx,text,x,y,time,speed,options)</code> — timed typewriter text with optional cursor</p>
+          <p><code>api.textMask(ctx,text,x,y,progress,options)</code> — gradient text revealed through a directional clipping mask</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
           <p><code>api.scene(ctx,t,name,start,end,draw,options)</code> — timed scene with fade, slide or zoom transition. The draw callback receives local time, progress and global time.</p>
           <p><code>api.glow(ctx,x,y,radius,color,intensity)</code>, <code>api.vignette(ctx,strength)</code> — light bloom and edge shading</p>
@@ -763,6 +831,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.16.0 / EFFECTS ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.17.0 / TYPOGRAPHY ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
