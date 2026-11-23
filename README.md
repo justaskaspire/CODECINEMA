@@ -7,14 +7,16 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
-- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, and `roundedRect(ctx, x, y, width, height, radius)`
+- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, and `roundedRect(ctx, x, y, width, height, radius)`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
 ## Features
+- Timed scene helper with local scene time, normalized progress and fade, slide or zoom transitions
+- Scene callbacks are deterministic and render consistently in preview and export
 - Named projects with portable `.cinema.json` save/load, including script and render settings
 - Project name and script autosave locally in the browser
-- Keyboard workflow: Ctrl/Cmd+Enter to run, Ctrl/Cmd+S to save a project, Ctrl/Cmd+O to open a project, Space to play/pause, Escape to exit expanded views
+- Touch-first mobile workflow with editor/preview tabs, code insertion toolbar, undo/redo and quick action bar; optional keyboard shortcuts are also available
 - Export filenames use the project name
 - JavaScript code editor with local autosave and Tab indentation
 - Run script with Ctrl+Enter / Cmd+Enter
