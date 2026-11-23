@@ -319,11 +319,11 @@ export default function App() {
     <section className="layout">
       <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}`}>
         <div className="section-title"><span>01 / YOUR SCRIPT</span><div className="editor-tools"><button className="expand-editor" onClick={() => setEditorExpanded(v => !v)}>{editorExpanded ? "CLOSE EDITOR" : "EXPAND EDITOR"}</button><span className="live-tag">JAVASCRIPT</span></div></div>
-        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>\n        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); }}><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
+        <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>\n        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
         <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); } }} aria-label="JavaScript video script" />
         <div className="editor-actions">
           <button className="button primary run-button" onClick={runCode}>▶ RUN SCRIPT</button>
-          <button className="button secondary" onClick={() => { setCode(starterCode); setExample("Cinematic title"); setStatus("STARTER RESTORED"); }}>RESET</button>
+          <button className="button secondary" onClick={() => { setCode(""); setExample(""); setError(""); setStatus("EDITOR CLEARED — PASTE NEW CODE"); }}>RESET</button>
         </div>
         {error && <div className="error-box"><b>CODE ERROR</b><span>{error}</span></div>}
         <div className="api-card">
