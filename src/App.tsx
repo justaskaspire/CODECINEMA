@@ -149,7 +149,7 @@ const api = {
   noise: (x: number, y = 0) => { const hash = (a: number, b: number) => { const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return n - Math.floor(n); }; const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1); const top = a + (b-a)*sx, bottom = c + (d-c)*sx; return top + (bottom-top)*sy; },
   hsla: (h: number, s = 100, l = 50, a = 1) => `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${a})`,
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize = 10, family = "Arial", weight = "700") => { let current = size; while (current > minSize) { ctx.font = `${weight} ${current}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; current -= 1; } return current; },
-  scene: (ctx: CanvasRenderingContext2D, time: number, name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number } = {}) => {
+  scene: (ctx: CanvasRenderingContext2D, time: number, _name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number } = {}) => {
     if (time < start || time > end || end <= start) return false;
     const length = end - start;
     const enter = Math.max(0, Math.min(length / 2, options.enter ?? 0.6));
