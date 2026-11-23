@@ -131,6 +131,15 @@ type CinemaApi = {
 };
 type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: CinemaApi) => void;
 
+function scriptError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || "Unknown script error");
+  if (/&lt;|&gt;|&amp;|&#91;|&#93;|\\\*/i.test(message)) return "Your code may contain HTML-escaped symbols. Use real JavaScript characters (<, >, &, [, ], *) and paste the raw code.";
+  const stack = error instanceof Error ? error.stack || "" : "";
+  const location = stack.match(/codec-cinema-user-script:(\\d+):(\\d+)/);
+  if (location) return `Line ${location[1]}, column ${location[2]}: ${message}`;
+  return message;
+}
+
 export default function App() {
   const [code, setCode] = useState(() => { try { return localStorage.getItem("codec-2026-script") || starterCode; } catch { return starterCode; } });
   const [example, setExample] = useState("Cinematic title");
@@ -143,6 +152,8 @@ export default function App() {
   const [status, setStatus] = useState("READY");
   const [editorExpanded, setEditorExpanded] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [bitrate, setBitrate] = useState(6);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const codeRef = useRef(code);
   const renderRef = useRef<RenderFunction | null>(null);
@@ -166,7 +177,10 @@ export default function App() {
 
   const compile = useCallback((source: string) => {
     // Scripts are user-authored and execute locally in this browser tab.
-    return new Function("ctx", "t", "w", "h", "api", source) as RenderFunction;
+    if (/&lt;|&gt;|&amp;|&#91;|&#93;|\\\*/i.test(source)) {
+      throw new Error("This code appears HTML-escaped. Replace &lt; with <, &gt; with >, &amp; with &, &#91; with [, &#93; with ], and \\* with * — or ask for raw JavaScript.");
+    }
+    return new Function("ctx", "t", "w", "h", "api", source + "\\n//# sourceURL=codec-cinema-user-script") as RenderFunction;
   }, []);
 
   const drawFrame = useCallback((time: number) => {
@@ -178,8 +192,12 @@ export default function App() {
       renderRef.current(ctx, time, canvas.width, canvas.height, api);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Your script has an error.");
+      setError(scriptError(e));
       setRunning(false);
+      if (recorderRef.current?.state === "recording") {
+        exportFailedRef.current = true;
+        try { recorderRef.current.stop(); } catch { /* recorder cleanup follows */ }
+      }
       setStatus("SCRIPT ERROR");
     }
   }, []);
@@ -193,7 +211,7 @@ export default function App() {
       drawFrame(0);
       setStatus("SCRIPT COMPILED");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not compile this script.");
+      setError(scriptError(e));
       setStatus("COMPILE ERROR");
     }
   };
@@ -279,7 +297,7 @@ export default function App() {
       const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(type => MediaRecorder.isTypeSupported(type));
       if (!mime) throw new Error("This browser does not support WebM encoding.");
       const stream = canvas.captureStream(30);
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate * 1_000_000 });
       const chunks: BlobPart[] = [];
       exportCancelledRef.current = false;
       exportFailedRef.current = false;
@@ -305,6 +323,15 @@ export default function App() {
         setError("Recording failed. Try 720p or a shorter video.");
         setRunning(false);
         setStatus("EXPORT FAILED — CLEANING UP");
+        if (recorder.state !== "inactive") {
+          try { recorder.stop(); } catch { /* browser may already have stopped it */ }
+        } else {
+          stream.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+          recorderRef.current = null;
+          setExporting(false);
+          setStatus("EXPORT FAILED");
+        }
       };
       recorderRef.current = recorder;
       setExporting(true);
@@ -316,7 +343,7 @@ export default function App() {
       setRunning(true);
     } catch (e) {
       exportFailedRef.current = true;
-      setError(e instanceof Error ? e.message : "Export failed.");
+      setError(scriptError(e));
       streamRef.current?.getTracks().forEach(track => track.stop());
       streamRef.current = null;
       recorderRef.current = null;
@@ -353,7 +380,15 @@ export default function App() {
       <section className={`editor-panel${editorExpanded ? " editor-expanded" : ""}`}>
         <div className="section-title"><span>01 / YOUR SCRIPT</span><div className="editor-tools"><button className="expand-editor" onClick={() => setEditorExpanded(v => !v)}>{editorExpanded ? "CLOSE EDITOR" : "EXPAND EDITOR"}</button><span className="live-tag">JAVASCRIPT</span></div></div>
         <div className="editor-help">One function. Every frame. Time is <code>t</code> in seconds. Your script auto-saves on this device.</div>\n        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
-        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); } }} aria-label="JavaScript video script" />
+        <textarea className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const el = e.currentTarget, start = el.selectionStart, end = el.selectionEnd;
+            setCode(value => value.slice(0, start) + "  " + value.slice(end));
+            requestAnimationFrame(() => el.setSelectionRange(start + 2, start + 2));
+          }
+        }} aria-label="JavaScript video script" />
         <div className="editor-actions">
           <button className="button primary run-button" onClick={runCode}>▶ RUN SCRIPT</button>
           <button className="button secondary" onClick={() => { setCode(""); setExample(""); setError(""); setStatus("EDITOR CLEARED — PASTE NEW CODE"); }}>RESET</button>
@@ -372,8 +407,8 @@ export default function App() {
       </section>
 
       <section className="preview-panel">
-        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS TARGET</b></span></div>
-        <div className="canvas-frame" style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
+        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><div className="preview-head-actions"><span className="resolution">{width} × {height} <b>30 FPS TARGET</b></span><button className="expand-editor" onClick={() => setPreviewExpanded(v => !v)}>{previewExpanded ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button></div></div>
+        <div className={`canvas-frame${previewExpanded ? " preview-expanded" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
         <div className="transport">
           <button onClick={stop} aria-label={exporting ? "Cancel export" : "Stop"}>{exporting ? "×" : "■"}</button>
           <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"} disabled={exporting}>{running ? "Ⅱ" : "▶"}</button>
@@ -385,10 +420,11 @@ export default function App() {
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
           <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
           <label>DURATION <select value={duration} disabled={exporting} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
+          <label>BITRATE <select value={bitrate} disabled={exporting} onChange={e => setBitrate(Number(e.target.value))}><option value={4}>4 Mbps · light</option><option value={6}>6 Mbps · balanced</option><option value={8}>8 Mbps · high</option><option value={12}>12 Mbps · max</option></select></label>
           <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.9.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
+    <footer><span>CODECINEMA <b>0.10.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
   </main>;
 }
