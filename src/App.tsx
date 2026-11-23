@@ -115,6 +115,13 @@ const api = {
   ease: (p: number) => { const x = Math.max(0, Math.min(1, p)); return x * x * (3 - 2 * x); },
   easeOut: (p: number) => 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3),
   map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => outMin + ((v - inMin) / (inMax - inMin || 1)) * (outMax - outMin),
+  smoothstep: (a: number, b: number, x: number) => { const p = Math.max(0, Math.min(1, (x - a) / (b - a || 1))); return p * p * (3 - 2 * p); },
+  pingPong: (value: number, length = 1) => length <= 0 ? 0 : length - Math.abs((((value % (2 * length)) + 2 * length) % (2 * length)) - length),
+  mod: (value: number, divisor: number) => divisor === 0 ? 0 : ((value % divisor) + divisor) % divisor,
+  random: (seed = 1) => { const n = Math.sin(seed * 127.1 + 311.7) * 43758.5453123; return n - Math.floor(n); },
+  noise: (x: number, y = 0) => { const hash = (a: number, b: number) => { const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return n - Math.floor(n); }; const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy; const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy); const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1); const top = a + (b-a)*sx, bottom = c + (d-c)*sx; return top + (bottom-top)*sy; },
+  hsla: (h: number, s = 100, l = 50, a = 1) => `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${a})`,
+  fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize = 10, family = "Arial", weight = "700") => { let current = size; while (current > minSize) { ctx.font = `${weight} ${current}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; current -= 1; } return current; },
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
     const r = Math.max(0, Math.min(radius, width / 2, height / 2));
     ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
@@ -128,6 +135,13 @@ type CinemaApi = {
   easeOut: (p: number) => number;
   map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => number;
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius?: number) => void;
+  smoothstep: (a: number, b: number, x: number) => number;
+  pingPong: (value: number, length?: number) => number;
+  mod: (value: number, divisor: number) => number;
+  random: (seed?: number) => number;
+  noise: (x: number, y?: number) => number;
+  hsla: (h: number, s?: number, l?: number, a?: number) => string;
+  fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize?: number, family?: string, weight?: string) => number;
 };
 type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: CinemaApi) => void;
 
@@ -154,6 +168,7 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [bitrate, setBitrate] = useState(6);
+  const [fps, setFps] = useState(30);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -262,7 +277,7 @@ export default function App() {
     if (!running) return;
     startRef.current = performance.now() - elapsedRef.current * 1000;
     lastFrameAtRef.current = 0;
-    const frameInterval = 1000 / 30;
+    const frameInterval = 1000 / fps;
     const tick = (now: number) => {
       const next = Math.min(duration, (now - startRef.current) / 1000);
       elapsedRef.current = next;
@@ -280,7 +295,7 @@ export default function App() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [running, duration, drawFrame, exporting]);
+  }, [running, duration, drawFrame, exporting, fps]);
 
   const play = () => {
     if (elapsedRef.current >= duration) {
@@ -325,7 +340,7 @@ export default function App() {
       renderRef.current = compile(code);
       const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(type => MediaRecorder.isTypeSupported(type));
       if (!mime) throw new Error("This browser does not support WebM encoding.");
-      const stream = canvas.captureStream(30);
+      const stream = canvas.captureStream(fps);
       const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate * 1_000_000 });
       const chunks: BlobPart[] = [];
       exportCancelledRef.current = false;
@@ -429,14 +444,17 @@ export default function App() {
           <p><code>t</code> — current time in seconds</p>
           <p><code>w</code> / <code>h</code> — output width and height</p>
           <p><code>api.clamp()</code>, <code>api.lerp()</code>, <code>api.map()</code> — math helpers</p>
-          <p><code>api.ease()</code>, <code>api.easeOut()</code> — smooth animation curves</p>
+          <p><code>api.ease()</code>, <code>api.easeOut()</code>, <code>api.smoothstep()</code> — easing curves</p>
+          <p><code>api.pingPong()</code>, <code>api.mod()</code> — looping motion helpers</p>
+          <p><code>api.random(seed)</code>, <code>api.noise(x,y)</code> — repeatable procedural variation</p>
+          <p><code>api.hsla()</code>, <code>api.fitText()</code> — color and typography helpers</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
           <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>\n          <p><code>Math.sin(t)</code> creates smooth motion. <code>ctx.save()</code> / <code>ctx.restore()</code> isolate drawing styles.</p>\n          <p><b>Tip:</b> Select an example above, change its code, then press RUN SCRIPT.</p>
         </div>
       </section>
 
       <section className="preview-panel">
-        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><div className="preview-head-actions"><span className="resolution">{width} × {height} <b>30 FPS TARGET</b></span><button className="expand-editor" onClick={() => setPreviewExpanded(v => !v)}>{previewExpanded ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button></div></div>
+        <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><div className="preview-head-actions"><span className="resolution">{width} × {height} <b>{fps} FPS TARGET</b></span><button className="expand-editor" onClick={() => setPreviewExpanded(v => !v)}>{previewExpanded ? "EXIT FULLSCREEN" : "FULLSCREEN"}</button></div></div>
         <div className={`canvas-frame${previewExpanded ? " preview-expanded" : ""}`} style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
         <div className="transport">
           <button onClick={stop} aria-label={exporting ? "Cancel export" : "Stop"}>{exporting ? "×" : "■"}</button>
@@ -449,11 +467,12 @@ export default function App() {
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
           <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
           <label>DURATION <select value={duration} disabled={exporting} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
+          <label>FPS <select value={fps} disabled={exporting} onChange={e => setFps(Number(e.target.value))}><option value={24}>24 · cinematic</option><option value={30}>30 · standard</option><option value={60}>60 · smooth</option></select></label>
           <label>BITRATE <select value={bitrate} disabled={exporting} onChange={e => setBitrate(Number(e.target.value))}><option value={4}>4 Mbps · light</option><option value={6}>6 Mbps · balanced</option><option value={8}>8 Mbps · high</option><option value={12}>12 Mbps · max</option></select></label>
           <div className="render-note"><span>●</span> Renders locally in your browser. No paid APIs.</div>
         </div>
       </section>
     </section>
-    <footer><span>CODECINEMA <b>0.10.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
+    <footer><span>CODECINEMA <b>0.11.0 / CODE-DRIVEN ENGINE</b></span><span>WRITE IT. RUN IT. RENDER IT.</span></footer>
   </main>;
 }

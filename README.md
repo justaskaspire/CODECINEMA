@@ -7,7 +7,7 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
-- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, and `roundedRect(ctx, x, y, width, height, radius)`
+- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, and `roundedRect(ctx, x, y, width, height, radius)`
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
@@ -19,9 +19,9 @@ Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms 
 - 16:9, 9:16, 1:1 and 4:5 output sizes
 - 720p lightweight default, with optional 1080p output
 - 5–60 second video duration
-- Selectable 4, 6, 8 or 12 Mbps WebM recording bitrate
+- Selectable 24, 30 or 60 FPS target\n- Selectable 4, 6, 8 or 12 Mbps WebM recording bitrate
 - Fullscreen preview
-- Canvas drawing capped at 30 updates per second during playback/export
+- Canvas drawing capped at the selected 24/30/60 FPS target during playback/export
 - WebM export targeting 30 FPS (actual frame pacing depends on browser/device)
 - Export cancellation and recorder cleanup
 - Open and save JavaScript scripts locally
