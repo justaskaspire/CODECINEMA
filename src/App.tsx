@@ -287,7 +287,6 @@ export default function App() {
       }
       if (next >= duration) {
         setRunning(false);
-        if (exporting && recorderRef.current?.state === "recording") recorderRef.current.stop();
         return;
       }
       rafRef.current = requestAnimationFrame(tick);
