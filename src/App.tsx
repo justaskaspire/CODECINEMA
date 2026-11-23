@@ -151,6 +151,8 @@ export default function App() {
   const lastFrameAtRef = useRef(0);
   const elapsedRef = useRef(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const exportCancelledRef = useRef(false);
   const formats: Record<string, [number, number]> = {
     "16:9": quality === "720p" ? [1280, 720] : [1920, 1080],
     "9:16": quality === "720p" ? [720, 1280] : [1080, 1920],
@@ -245,11 +247,20 @@ export default function App() {
     setStatus("PAUSED");
   };
   const stop = () => {
+    if (exporting) {
+      exportCancelledRef.current = true;
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+      recorderRef.current = null;
+      setExporting(false);
+    }
     setRunning(false);
     elapsedRef.current = 0;
     setElapsed(0);
     drawFrame(0);
-    setStatus("READY");
+    setStatus(exporting ? "EXPORT CANCELLED" : "READY");
   };
   const exportVideo = async () => {
     const canvas = canvasRef.current;
@@ -264,20 +275,31 @@ export default function App() {
       const stream = canvas.captureStream(30);
       const recorder = new MediaRecorder(stream, { mimeType: mime });
       const chunks: BlobPart[] = [];
+      exportCancelledRef.current = false;
+      streamRef.current = stream;
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
       recorder.onstop = () => {
-        const url = URL.createObjectURL(new Blob(chunks, { type: mime }));
-        const a = document.createElement("a");
-        a.href = url; a.download = "codec-cinema.webm"; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        if (!exportCancelledRef.current && chunks.length) {
+          const url = URL.createObjectURL(new Blob(chunks, { type: mime }));
+          const a = document.createElement("a");
+          a.href = url; a.download = "codec-cinema.webm"; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
+        }
         stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
         recorderRef.current = null;
         setExporting(false);
-        setStatus("EXPORT COMPLETE");
+        setStatus(exportCancelledRef.current ? "EXPORT CANCELLED" : "EXPORT COMPLETE");
       };
       recorder.onerror = () => {
-        setError("Recording failed. Try a smaller format or a shorter video.");
+        exportCancelledRef.current = true;
+        setError("Recording failed. Try 720p or a shorter video.");
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        setRunning(false);
         setExporting(false);
+        setStatus("EXPORT FAILED");
       };
       recorderRef.current = recorder;
       setExporting(true);
@@ -289,7 +311,11 @@ export default function App() {
       setRunning(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+      recorderRef.current = null;
       setExporting(false);
+      setStatus("EXPORT FAILED");
     }
   };
   const downloadScript = () => {
@@ -342,10 +368,10 @@ export default function App() {
         <div className="preview-head"><div><span className="section-kicker">03 / LIVE OUTPUT</span><h1>Preview</h1></div><span className="resolution">{width} × {height} <b>30 FPS TARGET</b></span></div>
         <div className="canvas-frame" style={{ aspectRatio: `${width} / ${height}` }}><canvas ref={canvasRef} /></div>
         <div className="transport">
-          <button onClick={stop} aria-label="Stop">■</button>
-          <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"}>{running ? "Ⅱ" : "▶"}</button>
+          <button onClick={stop} aria-label={exporting ? "Cancel export" : "Stop"}>{exporting ? "×" : "■"}</button>
+          <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"} disabled={exporting}>{running ? "Ⅱ" : "▶"}</button>
           <span>{elapsed.toFixed(2)}s <em>/ {duration.toFixed(1)}s</em></span>
-          <input className="scrubber" type="range" min="0" max={duration} step="0.01" value={elapsed} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
+          <input className="scrubber" type="range" min="0" max={duration} step="0.01" value={elapsed} disabled={exporting} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
           <span>{Math.max(0, duration - elapsed).toFixed(1)}s left</span>
         </div>
         <div className="render-settings">
