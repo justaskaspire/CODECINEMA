@@ -59,12 +59,12 @@ export default function App() {
       ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)*.31,0,Math.PI*2); ctx.fill();
       ctx.restore();
       ctx.fillStyle = "#ffffff"; ctx.textAlign = "center";
-      ctx.font = "800 76px Inter, system-ui, sans-serif"; ctx.letterSpacing = "2px";
+      ctx.font = "800 76px Inter, system-ui, sans-serif";
       ctx.fillText(scene.title, w/2, h*.48);
       ctx.fillStyle = scene.accent; ctx.fillRect(w/2-38,h*.55,76,4);
-      ctx.fillStyle = "#c4cbd8"; ctx.font = "500 19px Inter, system-ui, sans-serif"; ctx.letterSpacing = "5px";
+      ctx.fillStyle = "#c4cbd8"; ctx.font = "500 19px Inter, system-ui, sans-serif";
       ctx.fillText(scene.subtitle, w/2, h*.63);
-      ctx.fillStyle = "#ffffff70"; ctx.font = "12px Inter, system-ui, sans-serif"; ctx.letterSpacing = "2px";
+      ctx.fillStyle = "#ffffff70"; ctx.font = "12px Inter, system-ui, sans-serif";
       ctx.fillText("A CODECINEMA ORIGINAL", w/2, h*.88);
       t = performance.now();
       frame = requestAnimationFrame(draw);
