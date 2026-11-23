@@ -16,3 +16,11 @@
 
 .install-button{background:#1b2a20;border-color:#587a43;color:#c7ff9b}.install-button:hover{background:#263c2b;border-color:#b5ff6d}.installed-badge{font:9px 'DM Mono',monospace;color:#b5ff6d;border:1px solid #455b38;padding:10px 11px;white-space:nowrap}
 @media(max-width:680px){.install-button,.installed-badge{padding:8px 7px;font-size:8px}}
+
+.audio-picker{position:relative;cursor:pointer;min-height:34px}
+.audio-picker input{display:none}
+.audio-name{display:inline-flex;align-items:center;gap:7px;max-width:210px;color:#b5ff6d;font:9px 'DM Mono',monospace;overflow-wrap:anywhere}
+.audio-name button{border:1px solid #455b38;background:#111722;color:#d8eac8;padding:2px 6px;cursor:pointer}
+.render-progress{flex-basis:100%;height:5px;background:#1a2431;border-radius:8px;overflow:hidden;margin-top:2px}
+.render-progress i{display:block;height:100%;background:linear-gradient(90deg,#62c8ff,#b5ff6d);box-shadow:0 0 12px #b5ff6d;transition:width .15s}
+@media(max-width:680px){.audio-name{max-width:100%;font-size:8px}.render-progress{flex-basis:100%}}
