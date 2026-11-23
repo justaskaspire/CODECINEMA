@@ -13,3 +13,6 @@
 .render-settings select:disabled,.example-row select:disabled{opacity:.55;cursor:wait}
 .transport button:disabled{opacity:.35;cursor:wait}
 @media(max-width:680px){.preview-head-actions{gap:7px;flex-direction:column;align-items:flex-end}.preview-expanded{padding:8px}.preview-expanded canvas{object-fit:contain}}
+
+.install-button{background:#1b2a20;border-color:#587a43;color:#c7ff9b}.install-button:hover{background:#263c2b;border-color:#b5ff6d}.installed-badge{font:9px 'DM Mono',monospace;color:#b5ff6d;border:1px solid #455b38;padding:10px 11px;white-space:nowrap}
+@media(max-width:680px){.install-button,.installed-badge{padding:8px 7px;font-size:8px}}
