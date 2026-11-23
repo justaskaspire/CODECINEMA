@@ -477,7 +477,7 @@ export default function App() {
         throw new Error("This is not a supported CODECINEMA project file.");
       }
       const settings = project.settings || {};
-      setCode(project.code);
+      changeCode(project.code);
       setProjectName(typeof project.name === "string" ? project.name.slice(0, 60) : "Imported Cinema");
       if ([5,8,10,15,20,30,45,60].includes(settings.duration || 0)) setDuration(settings.duration!);
       if (["16:9","9:16","1:1","4:5"].includes(settings.format || "")) setFormat(settings.format!);
@@ -546,7 +546,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { setCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -558,7 +558,7 @@ export default function App() {
         }} aria-label="JavaScript video script" />
         <div className="editor-actions">
           <button className="button primary run-button" onClick={() => { runCode(); setMobileTab("preview"); }}>▶ RUN & PREVIEW</button>
-          <button className="button secondary" onClick={() => { setCode(""); setExample(""); setError(""); setStatus("EDITOR CLEARED — PASTE NEW CODE"); }}>RESET</button>
+          <button className="button secondary" onClick={() => { changeCode(""); setExample(""); setError(""); setStatus("EDITOR CLEARED — PASTE NEW CODE"); }}>RESET</button>
         </div>
         {error && <div className="error-box"><b>CODE ERROR</b><span>{error}</span></div>}
         <div className="api-card">
