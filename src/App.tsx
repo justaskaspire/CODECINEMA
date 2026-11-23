@@ -157,6 +157,34 @@ api.camera(ctx, shake.x, shake.y, 1 + Math.sin(t*0.4)*0.025, 0, () => {
 api.colorWash(ctx,"#0b1d3a",0.12);
 api.vignette(ctx,0.72);
 api.grain(ctx,t,0.07,180);`,
+  "Motion graphics lab": `// MOTION GRAPHICS LAB — spring physics, path animation, stagger and counters
+ctx.fillStyle = "#070a12"; ctx.fillRect(0,0,w,h);
+const unit=Math.min(w,h), cx=w/2, cy=h/2;
+const ease=api.cubicBezier(api.clamp(t/2.2),0.16,1,0.3,1);
+const points=[{x:w*.12,y:h*.68},{x:w*.28,y:h*.28},{x:w*.52,y:h*.62},{x:w*.76,y:h*.25},{x:w*.9,y:h*.55}];
+ctx.beginPath(); points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+ctx.strokeStyle="rgba(148,163,184,.24)";ctx.lineWidth=2;ctx.setLineDash([7,9]);ctx.stroke();ctx.setLineDash([]);
+const follower=api.pathPoint(points,api.pingPong(t*.12,1));
+api.glow(ctx,follower.x,follower.y,unit*.12,"#8b5cf6",.75);
+ctx.save();ctx.translate(follower.x,follower.y);ctx.rotate(follower.angle);
+ctx.fillStyle="#c4b5fd";ctx.beginPath();ctx.moveTo(18,0);ctx.lineTo(-12,-10);ctx.lineTo(-7,0);ctx.lineTo(-12,10);ctx.closePath();ctx.fill();ctx.restore();
+for(let i=0;i<7;i++){
+  const p=api.stagger(i,7,t/2.8,.09), spring=api.spring(p*.9,190,17);
+  const x=w*.16+i*w*.112, y=h*.42+(1-spring)*unit*.16;
+  ctx.globalAlpha=api.clamp(p*2);
+  ctx.fillStyle=api.hsla(250+i*10,85,65);
+  ctx.save();ctx.translate(x,y);ctx.rotate((1-spring)*-.45);
+  api.roundedRect(ctx,-unit*.025,-unit*.025,unit*.05,unit*.05,unit*.012);ctx.fill();ctx.restore();
+}
+ctx.globalAlpha=1;
+ctx.textAlign="center";ctx.textBaseline="middle";
+ctx.fillStyle="#f8fafc";ctx.font="800 "+(unit*.055)+"px Arial";
+ctx.fillText("MOTION, WITH INTENTION",cx,h*.82);
+ctx.fillStyle="#a5b4fc";ctx.font="600 "+(unit*.026)+"px Arial";
+ctx.fillText("SPRING  /  PATH  /  STAGGER",cx,h*.89);
+ctx.textAlign="right";ctx.fillStyle="#b5ff6d";ctx.font="700 "+(unit*.045)+"px monospace";
+ctx.fillText(api.counter(0,100,ease,0)+"%",w*.88,h*.14);
+api.vignette(ctx,.62);api.grain(ctx,t,.035,90);`,
   "Scene sequence": `// SCENE SEQUENCE — independent timed scenes with built-in transitions
 ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, w, h);
 
@@ -312,6 +340,58 @@ const api = {
     ctx.translate(-ctx.canvas.width/2,-ctx.canvas.height/2);
     try { draw(); } finally { ctx.restore(); }
   },
+  // Motion graphics helpers — deterministic and safe for frame-by-frame rendering.
+  spring: (time: number, stiffness = 170, damping = 20, mass = 1) => {
+    const t = Math.max(0, time), k = Math.max(0.001, stiffness), c = Math.max(0, damping), m = Math.max(0.001, mass);
+    const omega = Math.sqrt(k / m), zeta = c / (2 * Math.sqrt(k * m));
+    if (zeta < 0.999) {
+      const wd = omega * Math.sqrt(1 - zeta * zeta);
+      return 1 - Math.exp(-zeta * omega * t) * (Math.cos(wd * t) + (zeta * omega / wd) * Math.sin(wd * t));
+    }
+    if (zeta <= 1.001) return 1 - Math.exp(-omega * t) * (1 + omega * t);
+    const root = Math.sqrt(zeta * zeta - 1);
+    const r1 = -omega * (zeta - root), r2 = -omega * (zeta + root);
+    return 1 - ((r2 * Math.exp(r1 * t) - r1 * Math.exp(r2 * t)) / (r2 - r1));
+  },
+  cubicBezier: (progress: number, x1: number, y1: number, x2: number, y2: number) => {
+    const p = Math.max(0, Math.min(1, progress));
+    const curve = (u: number, a: number, b: number) => 3 * (1-u) * (1-u) * u * a + 3 * (1-u) * u * u * b + u*u*u;
+    const slope = (u: number, a: number, b: number) => 3*(1-u)*(1-u)*a + 6*(1-u)*u*(b-a) + 3*u*u*(1-b);
+    let u = p;
+    for (let i=0;i<7;i++) {
+      const dx = curve(u,x1,x2)-p, d = slope(u,x1,x2);
+      if (Math.abs(dx)<1e-5 || Math.abs(d)<1e-5) break;
+      u = Math.max(0,Math.min(1,u-dx/d));
+    }
+    return curve(u,y1,y2);
+  },
+  stagger: (index: number, count: number, progress: number, delay = 0.08) => {
+    const total = Math.max(1, Math.floor(count)), i = Math.max(0, Math.min(total-1, Math.floor(index)));
+    const offset = Math.max(0, delay) * i;
+    return Math.max(0, Math.min(1, (progress-offset) / Math.max(0.001, 1 - Math.max(0,delay)*(total-1))));
+  },
+  counter: (from: number, to: number, progress: number, decimals = 0) => {
+    const p = Math.max(0, Math.min(1, progress));
+    const value = from + (to-from)*p;
+    const digits = Math.max(0, Math.min(6, Math.floor(decimals)));
+    return Number(value.toFixed(digits));
+  },
+  pathPoint: (points: Array<{x:number;y:number}>, progress: number, closed = false) => {
+    if (!points.length) return {x:0,y:0,angle:0};
+    if (points.length === 1) return {x:points[0].x,y:points[0].y,angle:0};
+    const sample = (p: number) => {
+      const count = closed ? points.length : points.length-1;
+      const q = Math.max(0,Math.min(1,p)) * count;
+      const segment = Math.min(count-1,Math.floor(q)), u = q-segment;
+      const at = (i:number) => points[closed ? ((i%points.length)+points.length)%points.length : Math.max(0,Math.min(points.length-1,i))];
+      const p0=at(segment-1), p1=at(segment), p2=at(segment+1), p3=at(segment+2);
+      const u2=u*u, u3=u2*u;
+      const coord=(a:number,b:number,c:number,d:number)=>0.5*((2*b)+(-a+c)*u+(2*a-5*b+4*c-d)*u2+(-a+3*b-3*c+d)*u3);
+      return {x:coord(p0.x,p1.x,p2.x,p3.x),y:coord(p0.y,p1.y,p2.y,p3.y)};
+    };
+    const p = Math.max(0,Math.min(1,progress)), point=sample(p), ahead=sample(Math.min(1,p+0.001));
+    return {x:point.x,y:point.y,angle:Math.atan2(ahead.y-point.y,ahead.x-point.x)};
+  },
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
     const r = Math.max(0, Math.min(radius, width / 2, height / 2));
     ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
@@ -324,6 +404,11 @@ type CinemaApi = {
   ease: (p: number) => number;
   easeOut: (p: number) => number;
   map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => number;
+  spring: (time: number, stiffness?: number, damping?: number, mass?: number) => number;
+  cubicBezier: (progress: number, x1: number, y1: number, x2: number, y2: number) => number;
+  stagger: (index: number, count: number, progress: number, delay?: number) => number;
+  counter: (from: number, to: number, progress: number, decimals?: number) => number;
+  pathPoint: (points: Array<{x:number;y:number}>, progress: number, closed?: boolean) => {x:number;y:number;angle:number};
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius?: number) => void;
   glow: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color?: string, intensity?: number) => void;
   vignette: (ctx: CanvasRenderingContext2D, strength?: number) => void;
@@ -746,7 +831,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option><option>Cinematic effects</option><option>Kinetic typography</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Motion graphics lab</option><option>Scene sequence</option><option>Cinematic effects</option><option>Kinetic typography</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -774,6 +859,11 @@ export default function App() {
           <p><code>api.textReveal(ctx,text,x,y,progress,options)</code> — staggered character/word reveals, fade, rise and tracking</p>
           <p><code>api.typewriter(ctx,text,x,y,time,speed,options)</code> — timed typewriter text with optional cursor</p>
           <p><code>api.textMask(ctx,text,x,y,progress,options)</code> — gradient text revealed through a directional clipping mask</p>
+          <p><code>api.spring(t,stiffness,damping,mass)</code> — natural spring motion with overshoot</p>
+          <p><code>api.cubicBezier(p,x1,y1,x2,y2)</code> — custom easing curve</p>
+          <p><code>api.stagger(index,count,p,delay)</code> — timed sequences for repeated elements</p>
+          <p><code>api.counter(from,to,p,decimals)</code> — animated numeric values</p>
+          <p><code>api.pathPoint(points,p,closed)</code> — smooth Catmull–Rom path position and angle</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
           <p><code>api.scene(ctx,t,name,start,end,draw,options)</code> — timed scene with fade, slide or zoom transition. The draw callback receives local time, progress and global time.</p>
           <p><code>api.glow(ctx,x,y,radius,color,intensity)</code>, <code>api.vignette(ctx,strength)</code> — light bloom and edge shading</p>
@@ -831,6 +921,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.17.0 / TYPOGRAPHY ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.18.0 / MOTION GRAPHICS ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
