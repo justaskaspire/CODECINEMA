@@ -108,6 +108,25 @@ chars.forEach((c,i)=>{
 });
 ctx.fillStyle="rgba(255,255,255,.42)"; ctx.font="16px monospace";
 ctx.fillText("EVERY FRAME IS CODE",w/2,h*.72);`,
+  "Cinematic effects": `// CINEMATIC EFFECTS — glow, particles, camera movement, grading and film finish
+ctx.fillStyle = "#050812"; ctx.fillRect(0,0,w,h);
+const shake = api.shake(t, 3, 18);
+api.camera(ctx, shake.x, shake.y, 1 + Math.sin(t*0.4)*0.025, 0, () => {
+  const cx=w/2, cy=h/2;
+  api.glow(ctx,cx,cy,Math.min(w,h)*0.42,"#2563eb",0.65);
+  ctx.strokeStyle="rgba(125,211,252,.3)"; ctx.lineWidth=2;
+  for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(cx,cy,50+i*34+t*9,0,Math.PI*2);ctx.stroke();}
+  api.particles(ctx,t,150,{color:"#dbeafe",speed:0.18,size:2.2,seed:17,opacity:0.8});
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillStyle="#f8fafc";ctx.font="900 72px Arial";
+  ctx.shadowColor="#60a5fa";ctx.shadowBlur=28;
+  ctx.fillText("CINEMATIC",cx,cy-8);ctx.shadowBlur=0;
+  ctx.fillStyle="#93c5fd";ctx.font="600 18px Arial";
+  ctx.fillText("LIGHT • MOTION • ATMOSPHERE",cx,cy+58);
+});
+api.colorWash(ctx,"#0b1d3a",0.12);
+api.vignette(ctx,0.72);
+api.grain(ctx,t,0.07,180);`,
   "Scene sequence": `// SCENE SEQUENCE — independent timed scenes with built-in transitions
 ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, w, h);
 
@@ -174,6 +193,63 @@ const api = {
     try { draw(time - start, progress, time); } finally { ctx.restore(); }
     return true;
   },
+  glow: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color = "#7dd3fc", intensity = 0.6) => {
+    const r = Math.max(1, radius);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const a = Math.max(0, Math.min(1, intensity));
+    g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = g;
+    ctx.fillRect(x-r, y-r, r*2, r*2); ctx.restore();
+  },
+  vignette: (ctx: CanvasRenderingContext2D, strength = 0.55) => {
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    const g = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.18, w/2, h/2, Math.max(w,h)*0.72);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(0,0,0,${Math.max(0,Math.min(1,strength))})`);
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0,0,w,h); ctx.restore();
+  },
+  particles: (ctx: CanvasRenderingContext2D, time: number, count = 80, options: { color?: string; speed?: number; size?: number; seed?: number; opacity?: number } = {}) => {
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    const total = Math.max(0, Math.min(240, Math.floor(count)));
+    const speed = options.speed ?? 0.12, maxSize = options.size ?? 3, seed = options.seed ?? 1;
+    ctx.save();
+    for (let i=0;i<total;i++) {
+      const rand = (n: number) => { const v=Math.sin((n+seed)*127.1+311.7)*43758.5453; return v-Math.floor(v); };
+      const x = rand(i+1)*w;
+      const y = ((rand(i+101)*h - time*speed*(20+rand(i+201)*70)) % h + h) % h;
+      const radius = 0.5 + rand(i+301)*Math.max(0.5,maxSize);
+      ctx.globalAlpha = (options.opacity ?? 0.65) * (0.25 + rand(i+401)*0.75);
+      ctx.fillStyle = options.color ?? "#dbeafe";
+      ctx.beginPath(); ctx.arc(x,y,radius,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  },
+  grain: (ctx: CanvasRenderingContext2D, time: number, amount = 0.08, count = 180) => {
+    const w=ctx.canvas.width,h=ctx.canvas.height,total=Math.max(0,Math.min(350,Math.floor(count)));
+    const seed=Math.floor(time*24);
+    ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(0.25,amount));
+    for(let i=0;i<total;i++){
+      const n=Math.sin((i+1+seed*997)*127.1)*43758.5453, r=n-Math.floor(n);
+      const m=Math.sin((i+1+seed*577)*269.5)*15731.743, q=m-Math.floor(m);
+      ctx.fillStyle=r>0.5?"#fff":"#000"; ctx.fillRect(q*w,r*h,2,2);
+    }
+    ctx.restore();
+  },
+  colorWash: (ctx: CanvasRenderingContext2D, color = "#14213d", opacity = 0.18) => {
+    ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,opacity)); ctx.fillStyle=color;
+    ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height); ctx.restore();
+  },
+  shake: (time: number, intensity = 8, frequency = 24, seed = 1) => {
+    const frame=Math.floor(time*Math.max(1,frequency));
+    const rand=(n:number)=>{const v=Math.sin((n+seed)*127.1+311.7)*43758.5453;return v-Math.floor(v);};
+    return { x:(rand(frame+1)-0.5)*2*intensity, y:(rand(frame+2)-0.5)*2*intensity };
+  },
+  camera: (ctx: CanvasRenderingContext2D, x: number, y: number, zoom: number, rotation: number, draw: () => void) => {
+    ctx.save(); ctx.translate(ctx.canvas.width/2+x,ctx.canvas.height/2+y);
+    ctx.rotate(rotation); const z=Math.max(0.05,Math.min(8,zoom)); ctx.scale(z,z);
+    ctx.translate(-ctx.canvas.width/2,-ctx.canvas.height/2);
+    try { draw(); } finally { ctx.restore(); }
+  },
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
     const r = Math.max(0, Math.min(radius, width / 2, height / 2));
     ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
@@ -187,6 +263,13 @@ type CinemaApi = {
   easeOut: (p: number) => number;
   map: (v: number, inMin: number, inMax: number, outMin: number, outMax: number) => number;
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius?: number) => void;
+  glow: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color?: string, intensity?: number) => void;
+  vignette: (ctx: CanvasRenderingContext2D, strength?: number) => void;
+  particles: (ctx: CanvasRenderingContext2D, time: number, count?: number, options?: { color?: string; speed?: number; size?: number; seed?: number; opacity?: number }) => void;
+  grain: (ctx: CanvasRenderingContext2D, time: number, amount?: number, count?: number) => void;
+  colorWash: (ctx: CanvasRenderingContext2D, color?: string, opacity?: number) => void;
+  shake: (time: number, intensity?: number, frequency?: number, seed?: number) => { x: number; y: number };
+  camera: (ctx: CanvasRenderingContext2D, x: number, y: number, zoom: number, rotation: number, draw: () => void) => void;
   smoothstep: (a: number, b: number, x: number) => number;
   pingPong: (value: number, length?: number) => number;
   mod: (value: number, divisor: number) => number;
@@ -598,7 +681,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Scene sequence</option><option>Cinematic effects</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -625,6 +708,11 @@ export default function App() {
           <p><code>api.hsla()</code>, <code>api.fitText()</code> — color and typography helpers</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
           <p><code>api.scene(ctx,t,name,start,end,draw,options)</code> — timed scene with fade, slide or zoom transition. The draw callback receives local time, progress and global time.</p>
+          <p><code>api.glow(ctx,x,y,radius,color,intensity)</code>, <code>api.vignette(ctx,strength)</code> — light bloom and edge shading</p>
+          <p><code>api.particles(ctx,t,count,options)</code>, <code>api.grain(ctx,t,amount,count)</code> — procedural particles and film grain</p>
+          <p><code>api.colorWash(ctx,color,opacity)</code> — color grading overlay</p>
+          <p><code>api.shake(t,intensity,frequency)</code> — deterministic camera shake offset</p>
+          <p><code>api.camera(ctx,x,y,zoom,rotation,draw)</code> — isolated camera transform for a drawing callback</p>
           <p>Use standard JavaScript and Canvas methods: <code>fillRect()</code>, <code>fillText()</code>, <code>drawImage()</code>, gradients, paths, transforms and more.</p>
           <p><code>Math.sin(t)</code> creates smooth motion. <code>ctx.save()</code> / <code>ctx.restore()</code> isolate drawing styles.</p>
           <p><b>Tip:</b> Select an example above, change its code, then press RUN SCRIPT.</p>
