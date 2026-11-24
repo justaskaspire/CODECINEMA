@@ -144,3 +144,28 @@ footer{height:38px}
 .keyframe-points button span{font:8px 'DM Mono',monospace;color:#9eb0c7}
 .keyframe-note{margin-top:12px;color:#74849a;font-size:9px;line-height:1.6}
 @media(max-width:680px){.keyframe-panel{padding:12px}.keyframe-heading h2{font-size:17px}.keyframe-controls{grid-template-columns:1fr 1fr 1fr;gap:7px}.keyframe-controls label:first-child{grid-column:1/-1}.keyframe-controls label{font-size:8px}.keyframe-controls input,.keyframe-controls select{min-height:42px;font-size:11px}.keyframe-add{grid-column:1/-1;min-height:44px;font-size:9px}}
+
+
+/* v0.25 — 2D / 3D visual object layer studio */
+.layer-panel{margin-top:16px;padding:17px;background:#0d141e;border:1px solid #263548;border-radius:8px;min-width:0}
+.layer-create{display:grid;grid-template-columns:1.2fr 1.2fr 70px;gap:8px;align-items:end;margin-top:14px}
+.layer-create label,.layer-text-edit{display:flex;flex-direction:column;gap:6px;color:#8290a4;font:9px 'DM Mono',monospace}
+.layer-create input,.layer-create select,.layer-property-grid input,.layer-text-edit input{width:100%;min-width:0;min-height:38px;padding:8px 9px;background:#111b29;border:1px solid #334358;border-radius:4px;color:#e5edf7;font:11px 'DM Mono',monospace}
+.layer-create input[type=color],.layer-text-edit input[type=color]{padding:3px;min-height:38px}
+.layer-create>.button{grid-column:1/-1;min-height:40px}
+.layer-list{display:flex;flex-direction:column;gap:6px;margin-top:13px}
+.layer-row{display:flex;align-items:center;gap:6px;padding:5px;border:1px solid #29394d;border-radius:5px;background:#101a27}
+.layer-row.selected{border-color:#8ab75b;background:#17251d}
+.layer-select{display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:5px;border:0;background:transparent;color:#dce6f2;text-align:left}
+.layer-select i{width:12px;height:12px;flex:0 0 auto;border-radius:3px;box-shadow:0 0 8px currentColor}
+.layer-select span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.layer-select b{font:10px 'DM Mono',monospace}
+.layer-select small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#72849a;font:8px 'DM Mono',monospace}
+.layer-visibility,.layer-delete{width:34px;height:34px;flex:0 0 auto;border:1px solid #34465c;border-radius:4px;background:#142235;color:#b5ff6d;font-size:15px}
+.layer-delete{border-color:#51353c;background:#24171d;color:#f1aab2;font-size:19px}
+.layer-properties{margin-top:10px;padding:12px;border:1px solid #3a4d62;border-radius:5px;background:#101a27}
+.layer-properties-title{margin-bottom:10px;color:#b5ff6d;font:9px 'DM Mono',monospace}
+.layer-property-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.layer-property-grid label{display:flex;flex-direction:column;gap:5px;color:#8290a4;font:8px 'DM Mono',monospace}
+.layer-text-edit{margin-top:10px}
+@media(max-width:680px){.layer-panel{padding:12px}.layer-create{grid-template-columns:1fr 1fr 60px;gap:7px}.layer-create label:first-child,.layer-create label:nth-child(2){grid-column:span 1}.layer-create input,.layer-create select{min-height:42px;font-size:11px}.layer-create>.button{min-height:44px}.layer-property-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layer-select b{font-size:9px}.layer-select small{font-size:7px}}
