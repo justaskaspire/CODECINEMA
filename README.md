@@ -212,3 +212,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Edit each light's name, color, intensity and position (where applicable); toggle visibility or delete it.
 - Scene lights merge with script-defined lights by ID, so the visual editor and code can work together.
 - Lights autosave locally and are included in portable `.cinema.json` projects.
+
+
+## 3D Geometry Library (v0.40)
+- Add Cylinder, Plane and Torus Knot objects to the visual scene-layer creator.
+- New geometry uses the existing Three.js renderer and supports transforms, materials, lights, visibility, layer ordering and keyframes.
+- No new package or external 3D asset is required.
