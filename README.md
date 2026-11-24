@@ -75,6 +75,16 @@ The 3D renderer also supports:
 - Deterministic animated 3D point fields through `particles: [{ id, count, color, size, opacity, spread, speed, seed, position }]`.
 - Equirectangular environment images through `environment: "https://…"` for scene backgrounds and PBR reflections. The host must allow cross-origin access.
 - Depth of field through `depthOfField: { focus, aperture, maxBlur }`.
-- Script-driven camera and object keyframes: interpolate values using the existing `api.lerp` / `api.cubicBezier` helpers or a small timeline function. Camera position, look-at and FOV can be changed on every frame.
+- Script-driven camera and object keyframes: interpolate values using `api.track`, `api.lerp` or `api.cubicBezier`. Camera position, look-at and FOV can be changed on every frame.
 
 See [examples/3d-pro-studio.js](examples/3d-pro-studio.js) for a complete test scene. Replace optional model and environment URLs with your own CORS-enabled assets. On mobile, begin at 720p, medium quality and a few hundred particles; shadows, imported models and depth of field increase GPU and memory use.
+
+
+## 3D Animation Director (v0.22)
+The animation API adds reusable, deterministic timeline helpers:
+- `api.track(t, keyframes, easing)` samples a numeric or vector track at the current video time. Each keyframe is `{ time, value, ease? }`; easing modes are `linear`, `smooth`, `in`, `out` and `hold`. The final keyframe value is held after its timestamp.
+- Vector values such as `[x, y, z]` interpolate component by component, so the same helper can animate object positions, rotations, scales and camera positions.
+- `api.orbit3D(t, radius, speed, phase, y)` returns a deterministic `[x, y, z]` position for orbiting objects.
+- Keyframe sampling is stateless and uses the exact render timestamp, so preview scrubbing and frame-by-frame export use the same values.
+
+See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a full 3D cinematic test. This is a script-driven animation system, not a visual keyframe timeline editor. On a 4 GB mobile device, start with 720p, 24/30 FPS and medium quality; reduce particles or disable shadows if playback becomes slow.
