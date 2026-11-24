@@ -1292,6 +1292,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.31.0 / AUDIO MIXER</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.32.0 / MOBILE RENDER PROFILES</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
