@@ -1,6 +1,6 @@
 # CODECINEMA
 
-**Stable release: v1.0.0** — a free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
+**Stable release: v1.1.0** — a free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
 
 CODECINEMA combines a JavaScript frame editor with visual 2D/3D scene tools, keyframe animation, typography, lighting, particles, local audio mixing and browser-based video export. Projects stay in your browser unless you choose to export or share a project file.
 
