@@ -10,7 +10,6 @@ import {
   PBRMaterial,
   PointLight,
   Scene,
-  SceneLoader,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
@@ -18,6 +17,7 @@ import {
   type AbstractMesh,
   type Light
 } from "@babylonjs/core";
+import { ImportMeshAsync } from "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders";
 import type {
   ThreeSceneConfig,
@@ -224,7 +224,7 @@ export class BabylonSceneRenderer {
         this.models.set(spec.id,entry);
         const expectedUrl = spec.url!;
         this.modelLoads.set(spec.id,expectedUrl);
-        void SceneLoader.ImportMeshAsync("", "", expectedUrl, this.scene!).then(result => {
+        void ImportMeshAsync(expectedUrl, this.scene!).then(result => {
           if (this.modelLoads.get(spec.id) !== expectedUrl) {
             result.meshes.forEach(mesh => mesh.dispose(false,true));
             return;
