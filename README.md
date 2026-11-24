@@ -198,3 +198,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Keep independent per-keyframe easing controls and individual keyframe deletion.
 - Time edits are clamped to the project duration and keyframes remain sorted chronologically.
 - Values and easing are saved in project data and drive both preview and export.
+
+
+## Project Portability (v0.38)
+- Portable `.cinema.json` projects now include audio trim, volume and fade settings alongside visual and export settings.
+- Import restores those mixer settings and recognizes the 540p render profile.
+- Audio media itself remains a local file and is not embedded in the project; reselect the audio file after opening the project.
+- The existing schema version remains compatible with earlier project files; missing audio settings use the current studio defaults.
