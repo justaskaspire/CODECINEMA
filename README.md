@@ -95,3 +95,12 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Add cues at the playhead, tap ruler positions or cues to scrub, and remove cues.
 - Timeline cues autosave locally and are included in portable `.cinema.json` project files.
 - Cues are editorial planning markers; they do not yet drive animation properties or replace the script-based keyframe API.
+
+
+## Visual 3D Keyframe Director (v0.24)
+- Add visual keyframes for a 3D object's `position`, `rotation` or `scale` at the current playhead time.
+- Enter the exact object `id` used in your `api.render3D` object list, then set X/Y/Z values and add a keyframe.
+- Multiple keyframes on the same object/property are interpolated with smooth easing; preview scrubbing and frame-by-frame export use the same timestamp-based values.
+- Keyframe tracks autosave locally and are included in portable `.cinema.json` projects.
+- Rotation values are radians. A visual track overrides that object's matching transform property.
+- This editor animates transforms of existing script-defined 3D objects; it does not create 3D objects or replace the code editor.
