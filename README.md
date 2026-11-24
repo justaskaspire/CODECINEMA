@@ -88,3 +88,10 @@ The animation API adds reusable, deterministic timeline helpers:
 - Keyframe sampling is stateless and uses the exact render timestamp, so preview scrubbing and frame-by-frame export use the same values.
 
 See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a full 3D cinematic test. This is a script-driven animation system, not a visual keyframe timeline editor. On a 4 GB mobile device, start with 720p, 24/30 FPS and medium quality; reduce particles or disable shadows if playback becomes slow.
+
+
+## Visual timeline (v0.23)
+- Touch-friendly three-lane cue timeline for scene, visual and audio planning.
+- Add cues at the playhead, tap ruler positions or cues to scrub, and remove cues.
+- Timeline cues autosave locally and are included in portable `.cinema.json` project files.
+- Cues are editorial planning markers; they do not yet drive animation properties or replace the script-based keyframe API.
