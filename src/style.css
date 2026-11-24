@@ -193,3 +193,9 @@ footer{height:38px}
 .motion-presets button{min-height:36px;border:1px solid #40556e;border-radius:4px;background:#17283a;color:#cfe1f4;font:9px 'DM Mono',monospace}
 .motion-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
 @media(max-width:680px){.motion-presets button{min-height:42px;font-size:10px}}
+
+
+/* v0.30 typography inspector */
+.layer-color-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.layer-property-grid select{width:100%;min-width:0;background:#111722;border:1px solid #293344;color:#dce2eb;padding:9px;font:10px Manrope}
+.layer-property-grid label{min-width:0}

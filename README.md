@@ -144,3 +144,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Presets create real editable position, scale or rotation keyframes on the existing visual timeline tracks; they are not baked effects.
 - Presets use the current playhead as their start point and a short 0.8-second animation, while preserving keyframes outside the preset range.
 - Preset-generated animation uses the same deterministic keyframe evaluation in preview and export.
+
+
+## Typography Studio (v0.30)
+- Text layers support selectable system font families, weight and alignment.
+- Add adjustable text outlines and configurable shadow color/blur.
+- Typography settings are part of the normal scene-layer project data and render in preview and frame-by-frame export.
+- Fonts use local system/browser fonts; no external font download or paid font service is required.
