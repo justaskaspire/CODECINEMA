@@ -296,8 +296,34 @@ api.scene(ctx, t, "FINALE", 10, 15, (local, progress) => {
 `
 };
 
+type TrackValue = number | number[];
+type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
+const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], defaultEase: "linear" | "smooth" | "in" | "out" = "smooth"): TrackValue => {
+  if (!frames?.length) return 0;
+  const ordered = [...frames].filter(frame => Number.isFinite(frame.time)).sort((a, b) => a.time - b.time);
+  if (!ordered.length) return 0;
+  if (time <= ordered[0].time) return ordered[0].value;
+  const last = ordered[ordered.length - 1];
+  if (time >= last.time) return last.value;
+  let left = ordered[0], right = ordered[1];
+  for (let i = 0; i < ordered.length - 1; i++) {
+    if (time >= ordered[i].time && time <= ordered[i + 1].time) { left = ordered[i]; right = ordered[i + 1]; break; }
+  }
+  const raw = Math.max(0, Math.min(1, (time - left.time) / Math.max(0.000001, right.time - left.time)));
+  const mode = left.ease ?? defaultEase;
+  const p = mode === "hold" ? 0 : mode === "linear" ? raw : mode === "in" ? raw * raw : mode === "out" ? 1 - (1 - raw) * (1 - raw) : raw * raw * (3 - 2 * raw);
+  const a = left.value, b = right.value;
+  if (typeof a === "number" && typeof b === "number") return a + (b - a) * p;
+  if (Array.isArray(a) && Array.isArray(b)) return a.map((value, i) => value + ((b[i] ?? value) - value) * p);
+  return p < 1 ? a : b;
+};
+
 const api = {
   render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config: ThreeSceneConfig = {}) => threeSceneRenderer.render(ctx,time,width,height,config),
+  // Keyframe tracks return a number or vector at any exact timeline time.
+  track: (time: number, frames: AnimationKeyframe[], easing: "linear" | "smooth" | "in" | "out" = "smooth") => sampleAnimationTrack(time, frames, easing),
+  // Deterministic XZ orbit helper for planets, cameras and moving props.
+  orbit3D: (time: number, radius: number, speed = 1, phase = 0, y = 0): [number, number, number] => [Math.cos(time * speed + phase) * radius, y, Math.sin(time * speed + phase) * radius],
   clamp: (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v)),
   lerp: (a: number, b: number, p: number) => a + (b - a) * p,
   ease: (p: number) => { const x = Math.max(0, Math.min(1, p)); return x * x * (3 - 2 * x); },
@@ -1078,6 +1104,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.20.0 / TRUE 3D ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.22.0 / 3D ANIMATION DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
