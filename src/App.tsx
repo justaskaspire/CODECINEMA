@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderExport, type ExportContainer } from "./mediaExport";
+import { createAdvancedApi } from "./advancedEngines";
 import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec, type ThreeLightSpec, type ThreeParticleSpec } from "./threeEngine";
 
 const threeSceneRenderer = new ThreeSceneRenderer();
@@ -621,7 +622,8 @@ const api = {
     ctx.beginPath(); points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
     ctx.shadowBlur=4; ctx.lineWidth=Math.max(0.7,options.width ?? 3); ctx.strokeStyle="#ffffff"; ctx.stroke();
     ctx.restore();
-  }
+  },
+  ...createAdvancedApi()
 };
 
 type CinemaApi = {
@@ -661,7 +663,7 @@ type CinemaApi = {
   textMask: (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, progress: number, options?: { font?: string; align?: CanvasTextAlign; colors?: string[]; direction?: "left" | "right"; shadowColor?: string; shadowBlur?: number }) => void;
   fitText: (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, minSize?: number, family?: string, weight?: string) => number;
   scene: (ctx: CanvasRenderingContext2D, time: number, name: string, start: number, end: number, draw: (localTime: number, progress: number, globalTime: number) => void, options?: { transition?: "fade" | "slide" | "zoom"; enter?: number; exit?: number }) => boolean;
-};
+} & ReturnType<typeof createAdvancedApi>;
 type RenderFunction = (ctx: CanvasRenderingContext2D, t: number, w: number, h: number, api: CinemaApi) => void;
 
 function scriptError(error: unknown): string {
