@@ -1125,7 +1125,7 @@ export default function App() {
       savedAt: new Date().toISOString(),
       name: projectName,
       code,
-      settings: { duration, format, quality, fps, container, bitrate },
+      settings: { duration, format, quality, fps, container, bitrate, audioMix: { trimStart: audioTrimStart, trimEnd: audioTrimEnd, volume: audioVolume, fadeIn: audioFadeIn, fadeOut: audioFadeOut } },
       timeline: { markers: timelineMarkers, visualTracks, sceneLayers, sceneCamera }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
@@ -1137,7 +1137,7 @@ export default function App() {
     try {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
-        settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
+        settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number; audioMix?: { trimStart?: number; trimEnd?: number; volume?: number; fadeIn?: number; fadeOut?: number } };
         timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[]; sceneCamera?: SceneCamera };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
@@ -1148,10 +1148,16 @@ export default function App() {
       setProjectName(typeof project.name === "string" ? project.name.slice(0, 60) : "Imported Cinema");
       if ([5,8,10,15,20,30,45,60].includes(settings.duration || 0)) setDuration(settings.duration!);
       if (["16:9","9:16","1:1","4:5"].includes(settings.format || "")) setFormat(settings.format!);
-      if (["720p","1080p"].includes(settings.quality || "")) setQuality(settings.quality!);
+      if (["540p","720p","1080p"].includes(settings.quality || "")) setQuality(settings.quality!);
       if ([24,30,60].includes(settings.fps || 0)) setFps(settings.fps!);
       if (settings.container === "mp4" || settings.container === "webm") setContainer(settings.container);
       if ([4,6,8,12].includes(settings.bitrate || 0)) setBitrate(settings.bitrate!);
+      const audioMix = settings.audioMix || {};
+      if (Number.isFinite(audioMix.trimStart)) setAudioTrimStart(Math.max(0,audioMix.trimStart!));
+      if (Number.isFinite(audioMix.trimEnd)) setAudioTrimEnd(Math.max(0,audioMix.trimEnd!));
+      if (Number.isFinite(audioMix.volume)) setAudioVolume(Math.max(0,Math.min(1.5,audioMix.volume!)));
+      if (Number.isFinite(audioMix.fadeIn)) setAudioFadeIn(Math.max(0,Math.min(15,audioMix.fadeIn!)));
+      if (Number.isFinite(audioMix.fadeOut)) setAudioFadeOut(Math.max(0,Math.min(15,audioMix.fadeOut!)));
       if (Array.isArray(project.timeline?.markers)) setTimelineMarkers(project.timeline.markers.filter(marker => marker && typeof marker.id === "string" && Number.isFinite(marker.time) && ["SCENE","VISUAL","AUDIO"].includes(marker.track) && typeof marker.label === "string").map(marker => ({ ...marker, time: Math.max(0, Math.min(settings.duration || 60, marker.time)) })));
       setVisualTracks(Array.isArray(project.timeline?.visualTracks) ? project.timeline.visualTracks.filter(track => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map(track => ({ ...track, frames: track.frames.filter(frame => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every(Number.isFinite)).map(frame => ({ ...frame, time: Math.max(0, Math.min(settings.duration || 60, frame.time)), value: (frame.value as number[]).map(Number) })) })) : []);
       setSceneLayers(Array.isArray(project.timeline?.sceneLayers) ? project.timeline.sceneLayers.filter(layer => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","roundedRect2d","triangle2d","line2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map(layer => ({ ...layer, visible: layer.visible !== false, rotationX: Number.isFinite(layer.rotationX ?? 0) ? layer.rotationX ?? 0 : 0, rotationY: Number.isFinite(layer.rotationY ?? 0) ? layer.rotationY ?? 0 : 0, rotationZ: Number.isFinite(layer.rotationZ ?? 0) ? layer.rotationZ ?? 0 : 0, opacity: Number.isFinite(layer.opacity ?? 1) ? Math.max(0,Math.min(1,layer.opacity ?? 1)) : 1, metalness: Number.isFinite(layer.metalness ?? .15) ? Math.max(0,Math.min(1,layer.metalness ?? .15)) : .15, roughness: Number.isFinite(layer.roughness ?? .55) ? Math.max(.04,Math.min(1,layer.roughness ?? .55)) : .55, emissive: typeof layer.emissive === "string" ? layer.emissive : "#000000", emissiveIntensity: Number.isFinite(layer.emissiveIntensity ?? 0) ? Math.max(0,layer.emissiveIntensity ?? 0) : 0 })) : []);
@@ -1349,6 +1355,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.37.0 / KEYFRAME VALUE EDITOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.38.0 / PROJECT PORTABILITY</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
