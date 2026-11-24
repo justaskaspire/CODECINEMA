@@ -186,6 +186,7 @@ export class BabylonSceneRenderer {
             : new PointLight(spec.id,Vector3.Zero(),scene);
         this.lights.set(spec.id,light);
       }
+      if (!light) continue;
       light.intensity = Math.max(0,spec.intensity ?? 1);
       light.diffuse = Color3.FromHexString(spec.color ?? "#ffffff");
       if (light instanceof DirectionalLight || light instanceof PointLight) {
