@@ -293,3 +293,12 @@ footer{height:38px}
 .particle-presets button{min-height:34px;border:1px solid #40556e;border-radius:3px;background:#17283a;color:#cfe1f4;font:8px 'DM Mono',monospace}
 .particle-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
 @media(max-width:680px){.particle-presets button{min-height:40px}}
+
+
+/* v0.45 — export profile presets */
+.render-presets{display:flex;flex-direction:column;gap:8px;margin:14px 0 2px;padding:11px;border:1px solid #344052;border-radius:4px;background:#0d1520}
+.render-presets>span{font:8px 'DM Mono',monospace;letter-spacing:.08em;color:#8290a4}
+.render-presets>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.render-presets button{min-height:38px;padding:6px;border:1px solid #40556e;border-radius:3px;background:#17283a;color:#cfe1f4;font:8px 'DM Mono',monospace}
+.render-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
+@media(max-width:680px){.render-presets button{min-height:44px;font-size:7px}}

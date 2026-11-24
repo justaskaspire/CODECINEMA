@@ -1078,6 +1078,13 @@ export default function App() {
     drawFrame(0);
     setStatus("READY");
   };
+  const applyRenderPreset = (preset: "mobile" | "cinematic" | "social") => {
+    if (preset === "mobile") { setFormat("9:16"); setQuality("540p"); setFps(24); setBitrate(4); setContainer("mp4"); }
+    else if (preset === "cinematic") { setFormat("16:9"); setQuality("1080p"); setFps(24); setBitrate(8); setContainer("mp4"); }
+    else { setFormat("9:16"); setQuality("720p"); setFps(30); setBitrate(6); setContainer("mp4"); }
+    setStatus(preset.toUpperCase() + " RENDER PROFILE APPLIED");
+  };
+
   const savePreviewFramePNG = () => {
     const canvas = canvasRef.current;
     if (!canvas) { setError("Preview canvas is not available."); return; }
@@ -1387,6 +1394,7 @@ export default function App() {
           {visualTracks.length > 0 && <div className="keyframe-track-list">{visualTracks.map(track => <div className="keyframe-track" key={track.id}><div className="keyframe-track-title"><b>{track.objectId}</b><span>{track.property.toUpperCase()}</span><button type="button" onClick={() => setVisualTracks(items => items.filter(item => item.id !== track.id))} disabled={exporting} aria-label={"Delete " + track.objectId + " " + track.property}>×</button></div><div className="keyframe-points">{track.frames.map(frame => <div className="keyframe-point" key={frame.time}><div className="keyframe-point-top"><button type="button" className="keyframe-point-jump" onClick={() => scrubTo(frame.time)} disabled={exporting}><b>{frame.time.toFixed(2)}s</b><span>{(frame.value as number[]).map((v: number) => Number(v).toFixed(2)).join(" / ")}</span></button><label>TIME<input type="number" min="0" max={duration} step="0.01" value={frame.time} disabled={exporting} onChange={e=>{const time=Math.max(0,Math.min(duration,Number(e.target.value)||0));setVisualTracks(items=>items.map(item=>item.id!==track.id?item:{...item,frames:[...item.frames.filter(point=>point!==frame&&Math.abs(point.time-time)>.001),{...frame,time}].sort((a,b)=>a.time-b.time)}));}}/></label><label>EASE<select value={frame.ease ?? "smooth"} disabled={exporting} onChange={e=>setVisualTracks(items=>items.map(item=>item.id!==track.id?item:{...item,frames:item.frames.map(point=>point!==frame?point:{...point,ease:e.target.value as AnimationKeyframe["ease"]})}))}><option value="linear">Linear</option><option value="smooth">Smooth</option><option value="in">Ease In</option><option value="out">Ease Out</option><option value="hold">Hold</option></select></label><button type="button" className="keyframe-point-delete" onClick={()=>setVisualTracks(items=>items.map(item=>item.id!==track.id?item:{...item,frames:item.frames.filter(point=>point!==frame)}).filter(item=>item.frames.length>0))} disabled={exporting} aria-label="Delete keyframe">×</button></div><div className="keyframe-point-values">{(frame.value as number[]).map((value,index)=><label key={index}>{"XYZ"[index]}<input type="number" step="0.05" value={value} disabled={exporting} onChange={e=>setVisualTracks(items=>items.map(item=>item.id!==track.id?item:{...item,frames:item.frames.map(point=>point!==frame?point:{...point,value:(point.value as number[]).map((v,axis)=>axis===index?(Number(e.target.value)||0):v)})}))}/></label>)}</div></div>)}</div></div>)}</div>}
           <div className="keyframe-note">Keyframes interpolate between timestamps and are applied during preview and export. For 2D layers, position uses normalized X/Y (0–1), scale uses relative width/height, and rotation uses the Z value in radians. For 3D objects, all three axes are supported; rotation values use radians. Track values override the matching property.</div>
         </section>
+        <div className="render-presets"><span>QUICK EXPORT PROFILES</span><div><button type="button" onClick={()=>applyRenderPreset("mobile")} disabled={exporting}>MOBILE FAST · 540P</button><button type="button" onClick={()=>applyRenderPreset("cinematic")} disabled={exporting}>CINEMATIC · 1080P</button><button type="button" onClick={()=>applyRenderPreset("social")} disabled={exporting}>VERTICAL SOCIAL · 720P</button></div></div>
         <div className="render-settings">
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
           <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="540p">540p · mobile / fast</option><option value="720p">720p · balanced</option><option value="1080p">1080p · sharper</option></select></label>
@@ -1407,6 +1415,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.44.0 / PARTICLE PRESET LIBRARY</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.45.0 / EXPORT PROFILE DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }

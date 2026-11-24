@@ -245,3 +245,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - One-tap Stars, Dust and Snow particle configurations.
 - Presets update the selected particle system's real editable parameters.
 - Every preset can be further customized and exported through the existing Three.js renderer.
+
+
+## Export Profile Director (v0.45)
+- One-tap Mobile Fast (vertical 540p/24 FPS/4 Mbps), Cinematic (16:9 1080p/24 FPS/8 Mbps) and Vertical Social (9:16 720p/30 FPS/6 Mbps) profiles.
+- Profiles configure existing output settings; users can still fine-tune every setting before export.
+- Profiles use the existing local WebCodecs export pipeline and do not upload media.
