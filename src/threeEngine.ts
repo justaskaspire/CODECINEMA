@@ -130,7 +130,7 @@ export class ThreeSceneRenderer{
   for(const[id,l]of this.lights)if(!active.has(id)){this.scene.remove(l);this.lights.delete(id);}
  }
  private ensureComposer(w:number,h:number){
-  if(!this.composer){this.composer=new EffectComposer(this.getRenderer());this.composer.addPass(new RenderPass(this.scene,this.camera));this.bokeh=new BokehPass(this.scene,this.camera,{focus:8,aperture:.00008,maxblur:.008,width:w,height:h});this.composer.addPass(this.bokeh);}
+  if(!this.composer){this.composer=new EffectComposer(this.getRenderer());this.composer.addPass(new RenderPass(this.scene,this.camera));this.bokeh=new BokehPass(this.scene,this.camera,{focus:8,aperture:.00008,maxblur:.008});this.composer.addPass(this.bokeh);}
   this.composer.setSize(w,h);
  }
  render(ctx:CanvasRenderingContext2D,time:number,width:number,height:number,config:ThreeSceneConfig={}){
@@ -140,7 +140,7 @@ export class ThreeSceneRenderer{
   this.scene.background=config.background?new THREE.Color(config.background):null;
   this.camera.aspect=width/Math.max(1,height);this.camera.fov=Math.max(20,Math.min(100,config.camera?.fov??45));this.camera.near=Math.max(.01,config.camera?.near??.1);this.camera.far=Math.max(this.camera.near+1,config.camera?.far??1000);
   this.camera.position.set(...(config.camera?.position??[0,0,8]));this.camera.lookAt(new THREE.Vector3(...(config.camera?.lookAt??[0,0,0])));this.camera.updateProjectionMatrix();
-  this.updateEnvironment(config.environment);this.updateLights(config.lights??[],shadows);this.updateMeshes(config.objects??[],shadows);this.updateModels(config.objects??[],shadows);this.updateParticles(config.particles??[],time);
+  this.updateEnvironment(config.environment);if(this.environmentTexture)this.scene.background=this.environmentTexture;this.updateLights(config.lights??[],shadows);this.updateMeshes(config.objects??[],shadows);this.updateModels(config.objects??[],shadows);this.updateParticles(config.particles??[],time);
   if(config.depthOfField){this.ensureComposer(rw,rh);const u=(this.bokeh as unknown as {uniforms:Record<string,{value:number}>}).uniforms;u.focus.value=Math.max(.1,config.depthOfField.focus??8);u.aperture.value=Math.max(0,Math.min(.001,config.depthOfField.aperture??.00008));u.maxblur.value=Math.max(0,Math.min(.02,config.depthOfField.maxBlur??.008));this.composer!.render();}
   else r.render(this.scene,this.camera);
   ctx.drawImage(r.domElement,0,0,width,height);
