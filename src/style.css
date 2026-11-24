@@ -262,3 +262,8 @@ footer{height:38px}
 .scene-light-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .scene-light-controls input[type=color]{width:100%;height:34px;border:1px solid #344052;background:#111722;padding:2px}
 @media(max-width:680px){.scene-light-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.light-add-row select{min-height:40px}.scene-light-title button{min-width:36px;min-height:36px}}
+
+
+/* v0.41 — geometry-specific controls */
+.geometry-params{margin-top:9px;padding:9px;border:1px solid #28384d;border-radius:4px;background:#0c1420}
+.geometry-params input{min-width:0}
