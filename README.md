@@ -271,3 +271,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Add configurable outline color and width to rectangle, rounded rectangle, triangle and circle layers.
 - Outlines are rendered as vector strokes at the output resolution, not raster assets.
 - Shape outlines work with solid and gradient fills and are preserved in project data.
+
+
+## Project Safety & QA (v0.49)
+- Bound imported project complexity: up to 300 timeline cues, 300 animation tracks with up to 1,000 frames each, 200 scene layers, 24 lights and 8 particle systems.
+- Imported names and IDs are constrained, and particle/light values are clamped to mobile-safe editor ranges.
+- Script text is limited to 500 KB and project files remain limited to 1 MB.
+- Older schema v1 projects continue to import; excess optional items are safely ignored.
