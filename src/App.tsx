@@ -296,6 +296,8 @@ api.scene(ctx, t, "FINALE", 10, 15, (local, progress) => {
 `
 };
 
+type TimelineTrack = "SCENE" | "VISUAL" | "AUDIO";
+type TimelineMarker = { id: string; time: number; track: TimelineTrack; label: string };
 type TrackValue = number | number[];
 type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
 const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], defaultEase: "linear" | "smooth" | "in" | "out" = "smooth"): TrackValue => {
@@ -640,6 +642,8 @@ export default function App() {
   const [projectName, setProjectName] = useState(() => { try { return localStorage.getItem("codec-2026-project-name") || "Untitled Cinema"; } catch { return "Untitled Cinema"; } });
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const [timelineTrack, setTimelineTrack] = useState<TimelineTrack>("SCENE");
+  const [timelineMarkers, setTimelineMarkers] = useState<TimelineMarker[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-timeline") || "[]"); return Array.isArray(saved) ? saved.filter((m: any) => m && typeof m.id === "string" && Number.isFinite(m.time) && ["SCENE","VISUAL","AUDIO"].includes(m.track) && typeof m.label === "string") : []; } catch { return []; } });
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<string[]>([code]);
   const historyIndexRef = useRef(0);
@@ -688,7 +692,9 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); } catch { /* storage may be unavailable */ } }, [code, projectName]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers]);
+  const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
+  const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
 
   const changeCode = (next: string) => {
     const history = historyRef.current;
@@ -921,7 +927,8 @@ export default function App() {
       savedAt: new Date().toISOString(),
       name: projectName,
       code,
-      settings: { duration, format, quality, fps, container, bitrate }
+      settings: { duration, format, quality, fps, container, bitrate },
+      timeline: { markers: timelineMarkers }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
     setStatus("PROJECT SAVED");
@@ -933,6 +940,7 @@ export default function App() {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
         settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
+        timeline?: { markers?: TimelineMarker[] };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
         throw new Error("This is not a supported CODECINEMA project file.");
@@ -946,6 +954,7 @@ export default function App() {
       if ([24,30,60].includes(settings.fps || 0)) setFps(settings.fps!);
       if (settings.container === "mp4" || settings.container === "webm") setContainer(settings.container);
       if ([4,6,8,12].includes(settings.bitrate || 0)) setBitrate(settings.bitrate!);
+      if (Array.isArray(project.timeline?.markers)) setTimelineMarkers(project.timeline.markers.filter(marker => marker && typeof marker.id === "string" && Number.isFinite(marker.time) && ["SCENE","VISUAL","AUDIO"].includes(marker.track) && typeof marker.label === "string").map(marker => ({ ...marker, time: Math.max(0, Math.min(settings.duration || 60, marker.time)) })));
       setExample("");
       setError("");
       setElapsed(0); elapsedRef.current = 0;
@@ -1084,6 +1093,14 @@ export default function App() {
           <input className="scrubber" type="range" min="0" max={duration} step="0.01" value={elapsed} disabled={exporting} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
           <span>{Math.max(0, duration - elapsed).toFixed(1)}s left</span>
         </div>
+        <section className="timeline-panel" aria-label="Visual timeline">
+          <div className="timeline-heading"><div><span className="section-kicker">04 / EDITING WORKSPACE</span><h2>Timeline</h2><p>Place scene, visual and audio cue markers. Tap a marker to jump to its time.</p></div><button type="button" className="button primary timeline-add" onClick={addTimelineMarker} disabled={exporting}>＋ ADD CUE</button></div>
+          <div className="timeline-toolbar"><label>TRACK <select value={timelineTrack} onChange={e => setTimelineTrack(e.target.value as TimelineTrack)} disabled={exporting}><option value="SCENE">SCENE</option><option value="VISUAL">VISUAL</option><option value="AUDIO">AUDIO</option></select></label><span>{timelineMarkers.length} CUES · {duration}s</span></div>
+          <div className="timeline-ruler">{Array.from({length: 7}, (_,i) => { const time = duration * i / 6; return <button key={i} type="button" style={{left: (time/duration*100) + "%"}} onClick={() => scrubTo(time)}>{time.toFixed(0)}s</button>; })}</div>
+          <div className="timeline-lanes">{(["SCENE","VISUAL","AUDIO"] as TimelineTrack[]).map(track => <div className="timeline-lane" key={track}><span className="timeline-lane-name">{track}</span><div className="timeline-lane-track" onClick={e => { const rect=e.currentTarget.getBoundingClientRect(); scrubTo(((e.clientX-rect.left)/rect.width)*duration); }}>{timelineMarkers.filter(marker => marker.track === track).map(marker => <button key={marker.id} type="button" className={"timeline-marker marker-" + track.toLowerCase()} style={{left: (marker.time/duration*100) + "%"}} title={marker.label + " · " + marker.time.toFixed(2) + "s"} onClick={e => { e.stopPropagation(); scrubTo(marker.time); }}><i />{marker.label}</button>)}<span className="timeline-playhead" style={{left: (elapsed/duration*100) + "%"}} /></div></div>)}</div>
+          {timelineMarkers.length > 0 && <div className="timeline-cue-list">{[...timelineMarkers].sort((x,y)=>x.time-y.time).map(marker => <div className="timeline-cue" key={marker.id}><button type="button" onClick={() => scrubTo(marker.time)}><b>{marker.track}</b><span>{marker.label}</span><em>{marker.time.toFixed(2)}s</em></button><button type="button" aria-label={"Delete " + marker.label} onClick={() => setTimelineMarkers(items => items.filter(item => item.id !== marker.id))}>×</button></div>)}</div>}
+          <div className="timeline-footnote">Cues are saved with your project. They are editing guides, not yet automatic animation keyframes.</div>
+        </section>
         <div className="render-settings">
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
           <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
@@ -1104,6 +1121,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.22.0 / 3D ANIMATION DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.23.0 / VISUAL TIMELINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
