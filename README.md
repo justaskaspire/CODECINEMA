@@ -137,3 +137,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Edit 2D layer rotation and opacity alongside position and size.
 - Existing projects remain compatible: missing new layer properties are filled with safe defaults when loaded from local storage or imported from older `.cinema.json` files.
 - 3D material controls are applied through the existing Three.js renderer; no new runtime, paid API or external dependency is added.
+
+
+## Motion Preset Director (v0.29)
+- Apply one-tap Rise, Slide, Pop and Spin motion presets to any selected 2D or 3D scene layer.
+- Presets create real editable position, scale or rotation keyframes on the existing visual timeline tracks; they are not baked effects.
+- Presets use the current playhead as their start point and a short 0.8-second animation, while preserving keyframes outside the preset range.
+- Preset-generated animation uses the same deterministic keyframe evaluation in preview and export.
