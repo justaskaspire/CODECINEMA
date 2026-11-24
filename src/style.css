@@ -302,3 +302,13 @@ footer{height:38px}
 .render-presets button{min-height:38px;padding:6px;border:1px solid #40556e;border-radius:3px;background:#17283a;color:#cfe1f4;font:8px 'DM Mono',monospace}
 .render-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
 @media(max-width:680px){.render-presets button{min-height:44px;font-size:7px}}
+
+
+/* v0.46 — editable timeline cue details */
+.timeline-cue-edit{display:grid;grid-template-columns:65px minmax(90px,1.4fr) minmax(76px,.8fr) minmax(80px,.8fr) 28px;align-items:end;gap:7px;padding:8px}
+.timeline-cue-jump{display:flex;flex-direction:column;gap:5px;align-items:flex-start;border:0;background:none;color:#cbd5e1;padding:5px}
+.timeline-cue-jump b{font:8px 'DM Mono',monospace;color:#b5ff6d}
+.timeline-cue-jump em{font:8px 'DM Mono',monospace;color:#8c9bb0;font-style:normal}
+.timeline-cue-edit label{display:flex;flex-direction:column;gap:4px;color:#7e8ca0;font:7px 'DM Mono',monospace;min-width:0}
+.timeline-cue-edit input,.timeline-cue-edit select{width:100%;min-width:0;background:#111b29;border:1px solid #334258;color:#dce6f2;padding:7px;font:9px Manrope}
+@media(max-width:680px){.timeline-cue-edit{grid-template-columns:55px minmax(0,1fr) minmax(70px,.8fr) 26px}.timeline-cue-edit label:nth-of-type(3){grid-column:2/4}.timeline-cue-edit input,.timeline-cue-edit select{min-height:36px}}
