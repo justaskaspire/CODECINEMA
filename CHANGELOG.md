@@ -85,11 +85,11 @@
 - Extended keyframe animation to 2D layers and 3D objects.
 
 
-## 1.2.0-beta.1 — Babylon.js 3D backend
+## 1.2.0 — Babylon.js 3D backend
 
 - Switch the default `api.render3D` renderer from Three.js to Babylon.js while preserving the public CODECINEMA scripting API.
 - Add Babylon.js core and glTF loader as bundled dependencies.
 - Retain the existing Three.js implementation in `src/threeEngine.ts` as a reference/rollback path.
 - Keep Canvas 2D compositing, scene layers, animation tracks and local WebCodecs export unchanged.
 - Add Babylon.js geometry, PBR-style material, camera, light, shadow, particle and glTF model support.
-- Environment maps and depth-of-field are documented as remaining parity work; this is a development candidate, not a stable release.
+- Known limitations: environment-map reflections and depth-of-field post-processing are not yet implemented in the Babylon.js backend. Test existing scripts that rely on those effects before production use.
