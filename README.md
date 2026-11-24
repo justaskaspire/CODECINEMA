@@ -320,3 +320,17 @@ The `feature/cinema-engine-suite-v1.1-clean` branch adds deterministic scripting
 - `api.renderPlan(duration, fps, bitrateMbps, width, height)` estimates frame count and output size and reports whether the estimate fits the current 80 MB mobile-safe export budget.
 
 These helpers are deterministic at exact timeline times and add no external runtime dependencies. This is a development candidate; merge and release only after CI and Android device testing.
+
+
+## Babylon.js renderer (v1.2.0 development candidate)
+
+The default `api.render3D(ctx, t, w, h, config)` backend is now Babylon.js. The existing Canvas 2D composition, visual layers, keyframe tracks, timeline, audio workflow and local WebCodecs export remain in place.
+
+- Babylon.js handles 3D primitives, PBR-style materials, perspective camera, ambient/directional/point lighting, shadows and deterministic point-particle fields.
+- GLB/glTF model URLs can be loaded through the Babylon.js glTF loader when the host permits CORS.
+- The renderer draws into the existing composition canvas, so preview, frame capture and frame-by-frame export keep the same public scripting API.
+- The previous `src/threeEngine.ts` implementation is retained as a reference/rollback path; it is no longer the default renderer.
+- Environment-map reflections and depth-of-field post-processing are not yet parity features in this Babylon.js candidate. Existing scripts that depend on those options should be checked before merging.
+- Babylon.js is bundled locally through npm; no runtime CDN, account, paid API or cloud renderer is required.
+
+On mobile, start with 540p/720p, medium quality, modest shadow maps and particle counts. Babylon.js rendering still depends on the browser's WebGL support and available GPU memory.
