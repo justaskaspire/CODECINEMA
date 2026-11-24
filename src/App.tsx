@@ -302,6 +302,7 @@ type VisualTransformProperty = "position" | "rotation" | "scale";
 type VisualKeyframeTrack = { id: string; objectId: string; property: VisualTransformProperty; frames: AnimationKeyframe[] };
 type SceneLayerKind = "text2d" | "rect2d" | "circle2d" | "box3d" | "sphere3d" | "cone3d" | "torus3d";
 type SceneLayer = { id: string; name: string; kind: SceneLayerKind; visible: boolean; color: string; x: number; y: number; z: number; scaleX: number; scaleY: number; scaleZ: number; rotationX?: number; rotationY?: number; rotationZ?: number; opacity?: number; metalness?: number; roughness?: number; emissive?: string; emissiveIntensity?: number; text?: string };
+type LayerMotionPreset = "rise" | "slide" | "pop" | "spin";
 type SceneCamera = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };
 const defaultSceneCamera: SceneCamera = { position: [0, 0, 8], lookAt: [0, 0, 0], fov: 45 };
 type TrackValue = number | number[];
@@ -790,6 +791,39 @@ export default function App() {
     setError(""); setStatus("VISUAL KEYFRAME ADDED"); drawFrame(time);
   };
 
+  const applyLayerMotionPreset = (preset: LayerMotionPreset) => {
+    const layer = sceneLayers.find(item => item.id === selectedLayerId);
+    if (!layer) { setError("Select a scene layer before applying a motion preset."); return; }
+    const is3d = layer.kind.endsWith("3d");
+    const start = Math.min(Math.max(0, elapsedRef.current), Math.max(0, duration - 0.8));
+    const end = Math.min(duration, start + 0.8);
+    const position: [number,number,number] = [layer.x,layer.y,layer.z];
+    const scale: [number,number,number] = [layer.scaleX,layer.scaleY,layer.scaleZ];
+    const rotation: [number,number,number] = [layer.rotationX ?? 0,layer.rotationY ?? 0,layer.rotationZ ?? 0];
+    const specs: Array<{ property: VisualTransformProperty; from: [number,number,number]; to: [number,number,number] }> = [];
+    if (preset === "rise") specs.push({ property: "position", from: [position[0], position[1] + (is3d ? -0.8 : 0.18), position[2]], to: position });
+    if (preset === "slide") specs.push({ property: "position", from: [position[0] - (is3d ? 2 : 0.2), position[1], position[2]], to: position });
+    if (preset === "pop") specs.push({ property: "scale", from: scale.map(value => Math.max(0.001,value * 0.2)) as [number,number,number], to: scale });
+    if (preset === "spin") specs.push({ property: "rotation", from: [rotation[0],rotation[1],rotation[2] - Math.PI * 2], to: rotation });
+    setVisualTracks(items => {
+      const next = [...items];
+      for (const spec of specs) {
+        const index = next.findIndex(track => track.objectId === layer.id && track.property === spec.property);
+        const existing = index >= 0 ? next[index] : null;
+        const frames: AnimationKeyframe[] = [
+          ...(existing?.frames ?? []).filter(frame => frame.time < start - 0.001 || frame.time > end + 0.001),
+          { time: start, value: [...spec.from], ease: "out" as const },
+          { time: end, value: [...spec.to], ease: "smooth" as const }
+        ].sort((a,b) => a.time - b.time);
+        const updated: VisualKeyframeTrack = { id: existing?.id ?? layer.id + "-" + spec.property + "-preset", objectId: layer.id, property: spec.property, frames };
+        if (index >= 0) next[index] = updated; else next.push(updated);
+      }
+      return next;
+    });
+    setError(""); setStatus(preset.toUpperCase() + " MOTION PRESET APPLIED");
+    requestAnimationFrame(() => scrubTo(start));
+  };
+
   const changeCode = (next: string) => {
     const history = historyRef.current;
     if (history[historyIndexRef.current] !== next) {
@@ -1214,7 +1248,7 @@ export default function App() {
             <button type="button" className="button primary" onClick={addSceneLayer} disabled={exporting}>＋ ADD LAYER</button>
           </div>
           {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,-1)} disabled={exporting || sceneLayers[0]?.id===layer.id} aria-label="Move layer up">↑</button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,1)} disabled={exporting || sceneLayers[sceneLayers.length-1]?.id===layer.id} aria-label="Move layer down">↓</button><button type="button" className="layer-duplicate" onClick={() => duplicateSceneLayer(layer.id)} disabled={exporting} aria-label="Duplicate layer">＋</button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
-          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ","rotationX","rotationY","rotationZ","opacity","metalness","roughness"] as const).filter(key => layer.kind.endsWith("3d") || ["x","y","scaleX","scaleY","rotationZ","opacity"].includes(key)).map(key => <label key={key}>{key.toUpperCase()}<input type="number" min={["opacity","metalness","roughness"].includes(key)?0:undefined} max={["opacity","metalness","roughness"].includes(key)?1:undefined} step={["opacity","metalness","roughness"].includes(key)?0.05:0.05} value={layer[key] ?? 0} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}<button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput(layer.kind.endsWith("3d")?[layer.x,layer.y,layer.z]:[layer.x,layer.y,0]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>ANIMATE THIS LAYER</button><label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label>{layer.kind.endsWith("3d") && <><label className="layer-text-edit">EMISSIVE COLOR<input type="color" value={layer.emissive ?? "#000000"} onChange={e=>updateSceneLayer(layer.id,{emissive:e.target.value})} disabled={exporting}/></label><label className="layer-text-edit">EMISSIVE INTENSITY<input type="number" min="0" max="10" step="0.1" value={layer.emissiveIntensity ?? 0} onChange={e=>updateSceneLayer(layer.id,{emissiveIntensity:Math.max(0,Number(e.target.value)||0)})} disabled={exporting}/></label></>}<div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position and rotation use world units and radians. Metalness, roughness and emissive controls adjust the material." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas; rotation is in radians and opacity ranges from 0 to 1."}</div></div>)}
+          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ","rotationX","rotationY","rotationZ","opacity","metalness","roughness"] as const).filter(key => layer.kind.endsWith("3d") || ["x","y","scaleX","scaleY","rotationZ","opacity"].includes(key)).map(key => <label key={key}>{key.toUpperCase()}<input type="number" min={["opacity","metalness","roughness"].includes(key)?0:undefined} max={["opacity","metalness","roughness"].includes(key)?1:undefined} step={["opacity","metalness","roughness"].includes(key)?0.05:0.05} value={layer[key] ?? 0} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}<button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput(layer.kind.endsWith("3d")?[layer.x,layer.y,layer.z]:[layer.x,layer.y,0]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>ANIMATE THIS LAYER</button><div className="motion-presets"><span>QUICK MOTION</span><div><button type="button" onClick={()=>applyLayerMotionPreset("rise")} disabled={exporting}>RISE</button><button type="button" onClick={()=>applyLayerMotionPreset("slide")} disabled={exporting}>SLIDE</button><button type="button" onClick={()=>applyLayerMotionPreset("pop")} disabled={exporting}>POP</button><button type="button" onClick={()=>applyLayerMotionPreset("spin")} disabled={exporting}>SPIN</button></div></div><label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label>{layer.kind.endsWith("3d") && <><label className="layer-text-edit">EMISSIVE COLOR<input type="color" value={layer.emissive ?? "#000000"} onChange={e=>updateSceneLayer(layer.id,{emissive:e.target.value})} disabled={exporting}/></label><label className="layer-text-edit">EMISSIVE INTENSITY<input type="number" min="0" max="10" step="0.1" value={layer.emissiveIntensity ?? 0} onChange={e=>updateSceneLayer(layer.id,{emissiveIntensity:Math.max(0,Number(e.target.value)||0)})} disabled={exporting}/></label></>}<div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position and rotation use world units and radians. Metalness, roughness and emissive controls adjust the material." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas; rotation is in radians and opacity ranges from 0 to 1."}</div></div>)}
           <div className="keyframe-note">2D layers render above your script. The top row is drawn last and appears above lower rows. 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
         </section>
         <section className="keyframe-panel" aria-label="3D animation keyframe editor">
@@ -1248,6 +1282,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.28.0 / SCENE TRANSFORM & MATERIAL LAB</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.29.0 / MOTION PRESET DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
