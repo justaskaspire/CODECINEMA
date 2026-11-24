@@ -228,3 +228,9 @@ footer{height:38px}
 .keyframe-point label{display:flex;flex-direction:column;gap:3px;color:#7e8ca0;font:7px 'DM Mono',monospace}
 .keyframe-point select{width:100%;min-width:0;padding:6px;background:#111b29;border:1px solid #334258;color:#dce6f2;font:9px Manrope}
 .keyframe-point-delete{height:30px;border:1px solid #513840;background:#21141a;color:#f0a6ac;border-radius:3px}
+
+
+/* v0.35 — save current rendered frame */
+.frame-save-button{border:1px solid #344052;background:#111722;color:#cbd3df;padding:8px 10px;font:9px 'DM Mono',monospace;white-space:nowrap}
+.frame-save-button:active{border-color:#b5ff6d;color:#b5ff6d}
+@media(max-width:680px){.frame-save-button{padding:8px 7px;font-size:8px}}
