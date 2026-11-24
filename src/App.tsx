@@ -302,6 +302,8 @@ type VisualTransformProperty = "position" | "rotation" | "scale";
 type VisualKeyframeTrack = { id: string; objectId: string; property: VisualTransformProperty; frames: AnimationKeyframe[] };
 type SceneLayerKind = "text2d" | "rect2d" | "circle2d" | "box3d" | "sphere3d" | "cone3d" | "torus3d";
 type SceneLayer = { id: string; name: string; kind: SceneLayerKind; visible: boolean; color: string; x: number; y: number; z: number; scaleX: number; scaleY: number; scaleZ: number; text?: string };
+type SceneCamera = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };
+const defaultSceneCamera: SceneCamera = { position: [0, 0, 8], lookAt: [0, 0, 0], fov: 45 };
 type TrackValue = number | number[];
 type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
 const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], defaultEase: "linear" | "smooth" | "in" | "out" = "smooth"): TrackValue => {
@@ -326,6 +328,7 @@ const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], default
 
 let activeVisualTracks: VisualKeyframeTrack[] = [];
 let activeSceneLayers: SceneLayer[] = [];
+let activeSceneCamera: SceneCamera = defaultSceneCamera;
 const drawSceneOverlays = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
   for (const layer of activeSceneLayers) {
     if (!layer.visible || !["text2d","rect2d","circle2d"].includes(layer.kind)) continue;
@@ -351,7 +354,7 @@ const api = {
       }
       return animated;
     });
-    threeSceneRenderer.render(ctx,time,width,height,{ ...config, objects });
+    threeSceneRenderer.render(ctx,time,width,height,{ ...config, camera: { ...(config.camera ?? {}), position: activeSceneCamera.position, lookAt: activeSceneCamera.lookAt, fov: activeSceneCamera.fov }, objects });
   },
   // Keyframe tracks return a number or vector at any exact timeline time.
   track: (time: number, frames: AnimationKeyframe[], easing: "linear" | "smooth" | "in" | "out" = "smooth") => sampleAnimationTrack(time, frames, easing),
@@ -681,12 +684,14 @@ export default function App() {
   const [transformInput, setTransformInput] = useState<[number, number, number]>([0, 0, 0]);
   const [sceneLayers, setSceneLayers] = useState<SceneLayer[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-layers") || "[]"); return Array.isArray(saved) ? saved.filter((layer: any) => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map((layer: any) => ({ ...layer, visible: layer.visible !== false })) : []; } catch { return []; } });
   const [selectedLayerId, setSelectedLayerId] = useState("");
+  const [sceneCamera, setSceneCamera] = useState<SceneCamera>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-camera") || "null"); if (saved && Array.isArray(saved.position) && saved.position.length === 3 && saved.position.every(Number.isFinite) && Array.isArray(saved.lookAt) && saved.lookAt.length === 3 && saved.lookAt.every(Number.isFinite) && Number.isFinite(saved.fov)) return { position: saved.position as [number,number,number], lookAt: saved.lookAt as [number,number,number], fov: Math.max(20,Math.min(100,saved.fov)) }; } catch { /* use defaults */ } return defaultSceneCamera; });
   const [newLayerKind, setNewLayerKind] = useState<SceneLayerKind>("sphere3d");
   const [newLayerName, setNewLayerName] = useState("New Layer");
   const [newLayerColor, setNewLayerColor] = useState("#65b8ff");
   const [newLayerText, setNewLayerText] = useState("YOUR TITLE");
   activeVisualTracks = visualTracks;
   activeSceneLayers = sceneLayers;
+  activeSceneCamera = sceneCamera;
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<string[]>([code]);
   const historyIndexRef = useRef(0);
@@ -735,7 +740,7 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); localStorage.setItem("codec-2026-scene-camera", JSON.stringify(sceneCamera)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers]);
   const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
   const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
   const addSceneLayer = () => {
@@ -747,6 +752,21 @@ export default function App() {
     requestAnimationFrame(() => drawFrame(elapsedRef.current));
   };
   const updateSceneLayer = (id: string, patch: Partial<SceneLayer>) => setSceneLayers(items => items.map(layer => layer.id === id ? { ...layer, ...patch } : layer));
+  const duplicateSceneLayer = (id: string) => {
+    const source = sceneLayers.find(layer => layer.id === id); if (!source) return;
+    const copy = { ...source, id: source.id + "-copy-" + Date.now().toString(36), name: source.name + " Copy" };
+    setSceneLayers(items => { const index = items.findIndex(layer => layer.id === id); const next = [...items]; next.splice(index + 1, 0, copy); return next; });
+    setSelectedLayerId(copy.id); setStatus("LAYER DUPLICATED");
+  };
+  const moveSceneLayer = (id: string, direction: -1 | 1) => setSceneLayers(items => {
+    const index = items.findIndex(layer => layer.id === id), target = index + direction;
+    if (index < 0 || target < 0 || target >= items.length) return items;
+    const next = [...items]; [next[index], next[target]] = [next[target], next[index]]; return next;
+  });
+  const updateSceneCamera = (axis: "position" | "lookAt", index: number, value: number) => setSceneCamera(camera => {
+    const next = [...camera[axis]] as [number,number,number]; next[index] = value;
+    return { ...camera, [axis]: next };
+  });
   const addVisualKeyframe = () => {
     const objectId = objectIdInput.trim();
     if (!objectId) { setError("Enter the exact 3D object ID from your api.render3D script."); return; }
@@ -844,6 +864,8 @@ export default function App() {
       setStatus("SCRIPT ERROR");
     }
   }, []);
+
+  useEffect(() => { drawFrame(elapsedRef.current); }, [sceneCamera, drawFrame]);
 
   const runCode = () => {
     try {
@@ -994,7 +1016,7 @@ export default function App() {
       name: projectName,
       code,
       settings: { duration, format, quality, fps, container, bitrate },
-      timeline: { markers: timelineMarkers, visualTracks, sceneLayers }
+      timeline: { markers: timelineMarkers, visualTracks, sceneLayers, sceneCamera }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
     setStatus("PROJECT SAVED");
@@ -1006,7 +1028,7 @@ export default function App() {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
         settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
-        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[] };
+        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[]; sceneCamera?: SceneCamera };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
         throw new Error("This is not a supported CODECINEMA project file.");
@@ -1023,6 +1045,7 @@ export default function App() {
       if (Array.isArray(project.timeline?.markers)) setTimelineMarkers(project.timeline.markers.filter(marker => marker && typeof marker.id === "string" && Number.isFinite(marker.time) && ["SCENE","VISUAL","AUDIO"].includes(marker.track) && typeof marker.label === "string").map(marker => ({ ...marker, time: Math.max(0, Math.min(settings.duration || 60, marker.time)) })));
       setVisualTracks(Array.isArray(project.timeline?.visualTracks) ? project.timeline.visualTracks.filter(track => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map(track => ({ ...track, frames: track.frames.filter(frame => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every(Number.isFinite)).map(frame => ({ ...frame, time: Math.max(0, Math.min(settings.duration || 60, frame.time)), value: (frame.value as number[]).map(Number) })) })) : []);
       setSceneLayers(Array.isArray(project.timeline?.sceneLayers) ? project.timeline.sceneLayers.filter(layer => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map(layer => ({ ...layer, visible: layer.visible !== false })) : []);
+      setSceneCamera(project.timeline?.sceneCamera && Array.isArray(project.timeline.sceneCamera.position) && project.timeline.sceneCamera.position.length === 3 && project.timeline.sceneCamera.position.every(Number.isFinite) && Array.isArray(project.timeline.sceneCamera.lookAt) && project.timeline.sceneCamera.lookAt.length === 3 && project.timeline.sceneCamera.lookAt.every(Number.isFinite) && Number.isFinite(project.timeline.sceneCamera.fov) ? { position: project.timeline.sceneCamera.position, lookAt: project.timeline.sceneCamera.lookAt, fov: Math.max(20,Math.min(100,project.timeline.sceneCamera.fov)) } : defaultSceneCamera);
       setSelectedLayerId("");
       setExample("");
       setError("");
@@ -1171,7 +1194,8 @@ export default function App() {
           <div className="timeline-footnote">Scene, visual and audio cues are editorial markers. The 3D Animation Director below creates real transform keyframes used in preview and export.</div>
         </section>
         <section className="layer-panel" aria-label="2D and 3D object layer editor">
-          <div className="keyframe-heading"><div><span className="section-kicker">06 / SCENE COMPOSER</span><h2>Object Layers</h2><p>Create and manage editable 2D overlays and 3D primitives.</p></div><span className="keyframe-count">{sceneLayers.length} LAYERS</span></div>
+          <div className="keyframe-heading"><div><span className="section-kicker">06 / SCENE COMPOSER</span><h2>Scene Composer</h2><p>Build a scene, organize layers and frame the 3D camera.</p></div><span className="keyframe-count">{sceneLayers.length} LAYERS</span></div>
+          <div className="scene-camera-editor"><div className="layer-properties-title">3D CAMERA · GLOBAL OVERRIDE</div><div className="camera-control-grid">{(["position","lookAt"] as const).map(axis => <div className="camera-axis-group" key={axis}><b>{axis === "position" ? "CAMERA POSITION" : "LOOK AT TARGET"}</b>{(["X","Y","Z"] as const).map((label,index)=><label key={label}>{label}<input type="number" step="0.1" value={sceneCamera[axis][index]} onChange={e=>updateSceneCamera(axis,index,Number(e.target.value))} disabled={exporting}/></label>)}</div>)}<label className="camera-fov">FIELD OF VIEW<input type="number" min="20" max="100" step="1" value={sceneCamera.fov} onChange={e=>setSceneCamera(camera=>({...camera,fov:Math.max(20,Math.min(100,Number(e.target.value)||45))}))} disabled={exporting}/></label><button type="button" className="button secondary camera-reset" onClick={()=>setSceneCamera(defaultSceneCamera)} disabled={exporting}>RESET CAMERA</button></div><div className="keyframe-note">These camera values override script camera settings whenever api.render3D is called. They are saved with the project.</div></div>
           <div className="layer-create">
             <label>LAYER TYPE<select value={newLayerKind} disabled={exporting} onChange={e => setNewLayerKind(e.target.value as SceneLayerKind)}><optgroup label="2D OVERLAY"><option value="text2d">Text</option><option value="rect2d">Rectangle</option><option value="circle2d">Circle</option></optgroup><optgroup label="3D OBJECT"><option value="box3d">3D Box</option><option value="sphere3d">3D Sphere</option><option value="cone3d">3D Cone</option><option value="torus3d">3D Torus</option></optgroup></select></label>
             <label>NAME<input value={newLayerName} onChange={e => setNewLayerName(e.target.value)} maxLength={32} disabled={exporting} /></label>
@@ -1179,9 +1203,9 @@ export default function App() {
             {newLayerKind === "text2d" && <label>TEXT<input value={newLayerText} onChange={e => setNewLayerText(e.target.value)} maxLength={80} disabled={exporting} /></label>}
             <button type="button" className="button primary" onClick={addSceneLayer} disabled={exporting}>＋ ADD LAYER</button>
           </div>
-          {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
-          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ"] as const).filter(key => layer.kind.endsWith("3d") || key !== "z" && key !== "scaleZ").map(key => <label key={key}>{key.toUpperCase()}<input type="number" step="0.05" value={layer[key]} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}<label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label><div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position uses world units. Add a matching 3D keyframe track to animate this layer." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas."}</div></div>)}
-          <div className="keyframe-note">2D layers render above your script. 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
+          {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,-1)} disabled={exporting || sceneLayers[0]?.id===layer.id} aria-label="Move layer up">↑</button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,1)} disabled={exporting || sceneLayers[sceneLayers.length-1]?.id===layer.id} aria-label="Move layer down">↓</button><button type="button" className="layer-duplicate" onClick={() => duplicateSceneLayer(layer.id)} disabled={exporting} aria-label="Duplicate layer">＋</button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
+          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ"] as const).filter(key => layer.kind.endsWith("3d") || key !== "z" && key !== "scaleZ").map(key => <label key={key}>{key.toUpperCase()}<input type="number" step="0.05" value={layer[key]} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}{layer.kind.endsWith("3d") && <button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput([layer.x,layer.y,layer.z]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>USE IN KEYFRAME DIRECTOR</button>}<label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label><div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position uses world units. Add a matching 3D keyframe track to animate this layer." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas."}</div></div>)}
+          <div className="keyframe-note">2D layers render above your script. Their order follows this list (top row is drawn first, bottom row last). 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
         </section>
         <section className="keyframe-panel" aria-label="3D animation keyframe editor">
           <div className="keyframe-heading"><div><span className="section-kicker">05 / ANIMATION DIRECTOR</span><h2>3D Keyframes</h2><p>Animate an object by matching its exact ID in your 3D script.</p></div><span className="keyframe-count">{visualTracks.length} TRACKS</span></div>
@@ -1214,6 +1238,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.25.0 / VISUAL LAYER STUDIO</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.26.0 / SCENE COMPOSER</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
