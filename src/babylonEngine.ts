@@ -73,6 +73,7 @@ export class BabylonSceneRenderer {
   private particles = new Map<string,BabylonParticleEntry>();
   private lights = new Map<string,Light>();
   private shadowGenerator: ShadowGenerator | null = null;
+  private shadowLightId = "";
   private sizeKey = "";
 
   private initialize(): void {
@@ -198,14 +199,16 @@ export class BabylonSceneRenderer {
         this.lights.delete(id);
       }
     }
-    if (this.shadowGenerator) {
-      this.shadowGenerator.dispose();
+    const nextShadowLightId = shadowLight?.name ?? "";
+    if (nextShadowLightId !== this.shadowLightId) {
+      this.shadowGenerator?.dispose();
       this.shadowGenerator = null;
-    }
-    if (shadowLight) {
-      this.shadowGenerator = new ShadowGenerator(512,shadowLight);
-      this.shadowGenerator.useBlurExponentialShadowMap = true;
-      this.shadowGenerator.blurKernel = 8;
+      this.shadowLightId = nextShadowLightId;
+      if (shadowLight) {
+        this.shadowGenerator = new ShadowGenerator(512,shadowLight);
+        this.shadowGenerator.useBlurExponentialShadowMap = true;
+        this.shadowGenerator.blurKernel = 8;
+      }
     }
   }
 
@@ -325,8 +328,8 @@ export class BabylonSceneRenderer {
 
     const position = config.camera?.position ?? [0,0,8];
     const target = config.camera?.lookAt ?? [0,0,0];
-    camera.setPosition(vec(position));
     camera.setTarget(vec(target));
+    camera.setPosition(vec(position));
     camera.fov = Math.max(20,Math.min(100,config.camera?.fov ?? 45))*Math.PI/180;
     camera.minZ = Math.max(.01,config.camera?.near ?? .1);
     camera.maxZ = Math.max(camera.minZ+1,config.camera?.far ?? 1000);
