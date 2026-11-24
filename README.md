@@ -1,6 +1,9 @@
 # CODECINEMA
 
-A free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
+**Stable release: v1.0.0** — a free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
+
+CODECINEMA combines a JavaScript frame editor with visual 2D/3D scene tools, keyframe animation, typography, lighting, particles, local audio mixing and browser-based video export. Projects stay in your browser unless you choose to export or share a project file.
+
 
 ## How it works
 Write JavaScript that draws a frame. CODECINEMA calls your script once for every frame and provides:
@@ -278,3 +281,29 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Imported names and IDs are constrained, and particle/light values are clamped to mobile-safe editor ranges.
 - Script text is limited to 500 KB and project files remain limited to 1 MB.
 - Older schema v1 projects continue to import; excess optional items are safely ignored.
+
+
+## v1.0.0 Stable Release
+The 1.0 release consolidates the visual editing and code-driven rendering workflows into one mobile-friendly studio.
+
+### Included in 1.0
+- Canvas 2D and Three.js/WebGL 3D rendering in the same frame.
+- Visual 2D layers: text, rectangles, rounded rectangles, circles, triangles and lines.
+- Visual 3D objects: boxes, spheres, cones, toruses, cylinders, planes and torus knots.
+- Editable camera, lights, materials, geometry parameters and procedural particle systems.
+- Typography controls, linear gradients, shape outlines and editable composition templates.
+- Visual keyframe tracks with editable timestamps, vector values and per-keyframe easing.
+- Rise, Slide, Pop and Spin motion presets.
+- Local audio import with trim, volume and fade controls for export.
+- 540p, 720p and 1080p output profiles; 16:9, 9:16, 1:1 and 4:5 aspect ratios.
+- MP4/WebM export through browser WebCodecs, plus full-resolution PNG frame capture.
+- Portable `.cinema.json` project files and local autosave.
+
+### Known browser/device limits
+- Video export depends on browser WebCodecs and supported encoders. Chrome/Chromium is recommended.
+- 1080p, 60 FPS, large 3D scenes and high particle counts can be demanding on phones. Start with Mobile Fast or 720p when needed.
+- Audio files remain local and are not embedded in `.cinema.json`; reselect the audio file after opening a project.
+- User scripts execute in the browser page context. Only run code you wrote or trust.
+- Project imports are limited to 1 MB; script text is limited to 500 KB. Import complexity is bounded for mobile safety.
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
