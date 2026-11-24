@@ -307,3 +307,16 @@ The 1.0 release consolidates the visual editing and code-driven rendering workfl
 - Project imports are limited to 1 MB; script text is limited to 500 KB. Import complexity is bounded for mobile safety.
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
+
+
+## Advanced Engine Suite (1.1.0 development candidate)
+
+The `feature/cinema-engine-suite-v1.1-clean` branch adds deterministic scripting helpers in `src/advancedEngines.ts`, exposed through the existing user-script `api` object:
+
+- `api.character2D(ctx, t, { x, y, scale, motion, expression, facing, color })` draws an articulated 2D character with idle, breathing, walking and running motion plus neutral, happy, sad and surprised expressions.
+- `api.cameraPath3D(t, keys, loop?)` samples position, look-at and field-of-view camera keyframes. Pass the result as the `camera` property to `api.render3D`. The existing Three.js renderer already supports depth-of-field settings through `depthOfField: { focus, aperture, maxBlur }`.
+- `api.physics2D(t, bodies, { gravity, groundY, left, right })` deterministically simulates up to 32 circle bodies with gravity, ground/wall response and body collisions.
+- `api.audioTimeline(t, clips)` calculates active clip gain envelopes for timeline-based audio mixing. The existing Audio Mixer remains the actual audio import/trim/fade/export path; this helper is a scripting foundation, not a multi-track UI yet.
+- `api.renderPlan(duration, fps, bitrateMbps, width, height)` estimates frame count and output size and reports whether the estimate fits the current 80 MB mobile-safe export budget.
+
+These helpers are deterministic at exact timeline times and add no external runtime dependencies. This is a development candidate; merge and release only after CI and Android device testing.

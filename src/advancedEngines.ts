@@ -120,11 +120,10 @@ export function simulatePhysics2D(time: number, input: PhysicsBody[], options: {
       const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||.0001,min=(a.radius??12)+(b.radius??12);
       if(dist>=min)continue;
       const nx=dx/dist,ny=dy/dist,overlap=min-dist,am=a.static?Infinity:Math.max(.001,a.mass??1),bm=b.static?Infinity:Math.max(.001,b.mass??1);
-      const total=am+bm;
-      if(!a.static){a.x-=nx*overlap*(b.static?1:bm/total);a.y-=ny*overlap*(b.static?1:bm/total);}
-      if(!b.static){b.x+=nx*overlap*(a.static?1:am/total);b.y+=ny*overlap*(a.static?1:am/total);}
+      const invA=a.static?0:1/am, invB=b.static?0:1/bm, invTotal=invA+invB;
+      if(invTotal>0){if(!a.static){a.x-=nx*overlap*(invA/invTotal);a.y-=ny*overlap*(invA/invTotal);}if(!b.static){b.x+=nx*overlap*(invB/invTotal);b.y+=ny*overlap*(invB/invTotal);}}
       const relative=((b.vx??0)-(a.vx??0))*nx+((b.vy??0)-(a.vy??0))*ny;
-      if(relative<0){const e=Math.min(clamp(a.restitution??.45,0,1),clamp(b.restitution??.45,0,1)),impulse=-(1+e)*relative/(1/(a.static?Infinity:am)+1/(b.static?Infinity:bm));if(!a.static){a.vx=(a.vx??0)-impulse*nx/am;a.vy=(a.vy??0)-impulse*ny/am;}if(!b.static){b.vx=(b.vx??0)+impulse*nx/bm;b.vy=(b.vy??0)+impulse*ny/bm;}}
+      if(relative<0&&invTotal>0){const e=Math.min(clamp(a.restitution??.45,0,1),clamp(b.restitution??.45,0,1)),impulse=-(1+e)*relative/invTotal;if(!a.static){a.vx=(a.vx??0)-impulse*nx*invA;a.vy=(a.vy??0)-impulse*ny*invA;}if(!b.static){b.vx=(b.vx??0)+impulse*nx*invB;b.vy=(b.vy??0)+impulse*ny*invB;}}
     }
   }
   return bodies;
