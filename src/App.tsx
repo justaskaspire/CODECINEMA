@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderExport, type ExportContainer } from "./mediaExport";
+import { ThreeSceneRenderer, type ThreeSceneConfig } from "./threeEngine";
+
+const threeSceneRenderer = new ThreeSceneRenderer();
 
 const starterCode = `// CODECINEMA — your video is a function of time.
 // Available: ctx (Canvas 2D), t (seconds), w (width), h (height)
@@ -59,6 +62,57 @@ ctx.fillText(t.toFixed(2) + " SEC", w - 54, h - 42);`;
 
 
 const examples: Record<string, string> = {
+  "3D Solar System": `// TRUE 3D SOLAR SYSTEM — real Three.js geometry, camera, lighting and materials
+// Call api.render3D once per frame. Keep object IDs stable; animate transforms with t.
+ctx.fillStyle="#030611"; ctx.fillRect(0,0,w,h);
+for(let i=0;i<100;i++){
+  const a=Math.sin(i*127.1+311.7)*43758.5453;
+  const b=Math.sin(i*269.5+91.7)*15731.743;
+  ctx.globalAlpha=.25+.55*Math.abs(Math.sin(t*1.4+i));
+  ctx.fillStyle="#d8eaff";
+  ctx.fillRect((a-Math.floor(a))*w,(b-Math.floor(b))*h,1.5,1.5);
+}
+ctx.globalAlpha=1;
+const orbit=(r,s,p=0)=>[Math.cos(t*s+p)*r,0,Math.sin(t*s+p)*r];
+
+api.render3D(ctx,t,w,h,{
+  quality:"medium",
+  camera:{position:[Math.sin(t*.16)*1.2,4.2,10.5],lookAt:[0,0,0],fov:43},
+  lights:[
+    {id:"ambient",type:"ambient",color:"#9abaff",intensity:1.05},
+    {id:"sun-light",type:"point",color:"#ffe0a3",intensity:48,position:[0,0,0]},
+    {id:"blue-fill",type:"directional",color:"#528cff",intensity:1.4,position:[-5,4,6]}
+  ],
+  objects:[
+    {id:"sun",type:"sphere",radius:.72,segments:32,color:"#ffb33d",emissive:"#ff6a00",emissiveIntensity:1.35,roughness:.8,rotation:[0,t*.12,0]},
+    {id:"orbit-mercury",type:"torus",radius:1.25,tube:.006,rotation:[Math.PI/2,0,0],color:"#6d829f",unlit:true,opacity:.55,transparent:true},
+    {id:"mercury",type:"sphere",radius:.12,segments:20,position:orbit(1.25,1.15),color:"#a7a9ad",roughness:.9},
+    {id:"orbit-venus",type:"torus",radius:2,tube:.006,rotation:[Math.PI/2,0,0],color:"#a88a62",unlit:true,opacity:.45,transparent:true},
+    {id:"venus",type:"sphere",radius:.2,segments:24,position:orbit(2,.72,1.4),color:"#e4b77b",roughness:.8},
+    {id:"orbit-earth",type:"torus",radius:2.9,tube:.007,rotation:[Math.PI/2,0,0],color:"#4b8bd1",unlit:true,opacity:.5,transparent:true},
+    {id:"earth",type:"sphere",radius:.25,segments:28,position:orbit(2.9,.48,2.3),color:"#267bd5",metalness:.15,roughness:.48,rotation:[t*.25,t*.7,0]},
+    {id:"earth-moon",type:"sphere",radius:.065,segments:16,position:[Math.cos(t*1.8)*.42+Math.cos(t*.48+2.3)*2.9,.04,Math.sin(t*1.8)*.42+Math.sin(t*.48+2.3)*2.9],color:"#c7ced8",roughness:.9},
+    {id:"orbit-mars",type:"torus",radius:3.85,tube:.007,rotation:[Math.PI/2,0,0],color:"#a75d4d",unlit:true,opacity:.4,transparent:true},
+    {id:"mars",type:"sphere",radius:.17,segments:22,position:orbit(3.85,.32,.8),color:"#c45c43",roughness:.95},
+    {id:"saturn-orbit",type:"torus",radius:4.85,tube:.007,rotation:[Math.PI/2,0,0],color:"#a99b77",unlit:true,opacity:.35,transparent:true},
+    {id:"saturn",type:"sphere",radius:.31,segments:28,position:orbit(4.85,.22,2.8),color:"#d4b47e",roughness:.8,rotation:[.25,t*.35,0]},
+    {id:"saturn-rings",type:"torus",radius:.48,tube:.065,segments:40,position:orbit(4.85,.22,2.8),rotation:[Math.PI/2.5,.15,0],color:"#c9a879",metalness:.25,roughness:.7},
+    {id:"nexus",type:"torusKnot",radius:.16,tube:.035,position:[0,1.45,0],rotation:[t*.5,t*.8,0],color:"#6bdcff",emissive:"#168bff",emissiveIntensity:1.8,metalness:.65,roughness:.25}
+  ]
+});
+
+// Canvas 2D titles are composited over the real 3D scene.
+const intro=Math.max(0,Math.min(1,t/1.5));
+ctx.globalAlpha=intro; ctx.textAlign="center";
+ctx.fillStyle="#f4f8ff"; ctx.font="800 "+(Math.min(w,h)*.045)+"px Arial";
+ctx.shadowColor="#4b9cff"; ctx.shadowBlur=18;
+ctx.fillText("SOLAR SYSTEM",w/2,h*.12);
+ctx.shadowBlur=0; ctx.fillStyle="#9db8dd";
+ctx.font="500 "+(Math.min(w,h)*.019)+"px Arial";
+ctx.fillText("A REAL-TIME 3D SCENE",w/2,h*.165);
+ctx.globalAlpha=1;
+ctx.fillStyle="rgba(160,205,255,.75)"; ctx.font="12px monospace"; ctx.textAlign="left";
+ctx.fillText("CODECINEMA 3D ENGINE / v0.20",24,h-24);`,
   "Cinematic title": starterCode,
   "Particle universe": `// PARTICLE UNIVERSE — a procedural field of glowing particles
 const rand = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -243,6 +297,7 @@ api.scene(ctx, t, "FINALE", 10, 15, (local, progress) => {
 };
 
 const api = {
+  render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config: ThreeSceneConfig = {}) => threeSceneRenderer.render(ctx,time,width,height,config),
   clamp: (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v)),
   lerp: (a: number, b: number, p: number) => a + (b - a) * p,
   ease: (p: number) => { const x = Math.max(0, Math.min(1, p)); return x * x * (3 - 2 * x); },
@@ -487,6 +542,7 @@ const api = {
 };
 
 type CinemaApi = {
+  render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config?: ThreeSceneConfig) => void;
   clamp: (v: number, min?: number, max?: number) => number;
   lerp: (a: number, b: number, p: number) => number;
   ease: (p: number) => number;
@@ -889,7 +945,7 @@ export default function App() {
   return <main className="studio">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small></div>
-      <div className="top-status"><i /> LOCAL RENDER ENGINE <span>/</span> {status}</div>
+      <div className="top-status"><i /> DUAL 2D / 3D RENDER ENGINE <span>/</span> {status}</div>
       <div className="top-actions">
         <input ref={projectInputRef} hidden type="file" accept=".json,application/json" onChange={e => { void openProject(e.target.files?.[0]); e.currentTarget.value = ""; }} />
         <input className="project-name" aria-label="Project name" value={projectName} maxLength={60} onChange={e => setProjectName(e.target.value)} />
@@ -925,7 +981,7 @@ export default function App() {
           <button type="button" className="button secondary" onClick={redoCode} disabled={!historyState.canRedo}>↷ REDO</button>
           <span>EDIT HISTORY</span>
         </div>
-        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Motion graphics lab</option><option>Scene sequence</option><option>Cinematic effects</option><option>Kinetic typography</option></select></div>
+        <div className="example-row"><label htmlFor="example-select">START FROM</label><select id="example-select" value={example} onChange={e => { const key=e.target.value; setExample(key); if (key) { changeCode(examples[key]); setStatus("EXAMPLE LOADED — PRESS RUN"); } }}><option value="">Choose an example…</option><option>3D Solar System</option><option>Cinematic title</option><option>Particle universe</option><option>Orbiting geometry</option><option>Wave typography</option><option>Motion graphics lab</option><option>Scene sequence</option><option>Cinematic effects</option><option>Kinetic typography</option></select></div>
         <textarea ref={editorRef} className="code-editor" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={code} onChange={e => changeCode(e.target.value)} onKeyDown={e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runCode(); return; }
           if (e.key === "Tab") {
@@ -945,6 +1001,7 @@ export default function App() {
           <p><code>ctx</code> — Canvas 2D drawing context</p>
           <p><code>t</code> — current time in seconds</p>
           <p><code>w</code> / <code>h</code> — output width and height</p>
+          <p><code>api.render3D(ctx,t,w,h,config)</code> — real Three.js 3D rendering with perspective camera, lights, geometry, materials and animated transforms. Quality: low, medium or high.</p>
           <p><code>api.clamp()</code>, <code>api.lerp()</code>, <code>api.map()</code> — math helpers</p>
           <p><code>api.ease()</code>, <code>api.easeOut()</code>, <code>api.smoothstep()</code> — easing curves</p>
           <p><code>api.pingPong()</code>, <code>api.mod()</code> — looping motion helpers</p>
@@ -1021,6 +1078,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.19.0 / COMPOSITING & LIGHT ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.20.0 / TRUE 3D ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }

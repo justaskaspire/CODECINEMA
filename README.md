@@ -1,17 +1,22 @@
 # CODECINEMA
 
-A free, browser-based, code-driven video studio built with React, TypeScript and Canvas.
+A free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
 
 ## How it works
 Write JavaScript that draws a frame. CODECINEMA calls your script once for every frame and provides:
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
+- `api.render3D(ctx, t, w, h, config)`: real Three.js/WebGL 3D rendering composited into the current 2D frame. Configure a perspective camera, lights, geometry, materials and object transforms. Keep object IDs stable and animate positions/rotations with `t`; quality can be `low`, `medium` or `high`.
 - `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, `spring`, `cubicBezier`, `stagger`, `counter`, `pathPoint`, `roundedRect`, `blend`, `clipCircle`, `blur`, `ripple`, `lensFlare` and `lightning`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
 ## Features
+- Integrated dual renderer: existing Canvas 2D scripts plus real Three.js/WebGL 3D scenes in the same frame and export pipeline
+- 3D primitives: boxes, spheres, toruses, cones, cylinders, planes and torus knots; per-object transforms, metallic/rough materials, emissive color and opacity
+- 3D perspective camera and ambient, directional and point lights; mobile-friendly low/medium/high render scales
+- Built-in 3D Solar System example demonstrating orbiting planets, rings, a moving camera, lighting and 2D title compositing
 - Motion graphics engine: damped spring physics, custom cubic-Bezier easing, staggered sequences, animated number counters and smooth Catmull–Rom path following with tangent angles
 - Compositing and lighting engine: scoped blend modes, circular clipping masks, blur callbacks, animated ripple rings, deterministic lightning bolts and cinematic lens flares
 - Typography engine: staggered character/word reveals, fade/rise/tracking modes, timed typewriter text and directional gradient text masks
@@ -61,4 +66,4 @@ npm run build
 - MP4 and WebM export use browser-provided WebCodecs encoders through Mediabunny. Exact codec availability depends on the browser/device.
 - Audio is optional and imported from a local file; supported audio formats depend on the browser's AudioContext decoder.
 - Export is rendered locally and uses an in-memory output buffer. For large projects, lower bitrate, resolution or duration to avoid memory pressure on mobile devices.
-- FFmpeg and WebGPU are not bundled in this mobile-first build. They remain optional future modules rather than loading large runtimes on every launch.
+- Three.js is bundled for real WebGL 3D rendering. WebGL support and performance depend on the browser and device. The 3D renderer uses reduced internal resolution in medium/low quality modes and disables expensive antialiasing/shadows by default. FFmpeg and WebGPU are not bundled in this mobile-first build. They remain optional future modules rather than loading large runtimes on every launch.
