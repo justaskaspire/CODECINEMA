@@ -759,6 +759,44 @@ export default function App() {
   useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); localStorage.setItem("codec-2026-scene-camera", JSON.stringify(sceneCamera)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers, sceneCamera]);
   const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
   const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
+  const applyCompositionPreset = (preset: "title" | "lower-third" | "end-card") => {
+    const stamp = Date.now().toString(36);
+    const makeLayer = (suffix: string, name: string, kind: SceneLayerKind, color: string, x: number, y: number, scaleX: number, scaleY: number, text = ""): SceneLayer => ({
+      id: "preset-" + preset + "-" + suffix + "-" + stamp, name, kind, visible: true, color, x, y, z: 0,
+      scaleX, scaleY, scaleZ: 1, rotationX: 0, rotationY: 0, rotationZ: 0, opacity: 1,
+      metalness: .15, roughness: .55, emissive: "#000000", emissiveIntensity: 0,
+      fontFamily: "Arial", fontWeight: 800, textAlign: "center", strokeColor: "#000000", strokeWidth: 0,
+      shadowColor: "#000000", shadowBlur: 0, text
+    });
+    let layers: SceneLayer[] = [];
+    if (preset === "title") {
+      layers = [
+        makeLayer("headline","Title — YOUR STORY","text2d","#f4f7fb",.5,.43,.078,.1,"YOUR STORY"),
+        makeLayer("subtitle","Subtitle — A CINEMATIC SHORT","text2d","#aebbd0",.5,.55,.026,.06,"A CINEMATIC SHORT"),
+        makeLayer("accent","Accent line","rect2d","#b5ff6d",.5,.63,.16,.006)
+      ];
+    } else if (preset === "lower-third") {
+      layers = [
+        makeLayer("name","Lower third — NAME","text2d","#f4f7fb",.24,.755,.032,.07,"YOUR NAME"),
+        makeLayer("role","Lower third — ROLE","text2d","#b5ff6d",.24,.82,.018,.05,"YOUR TITLE / ROLE"),
+        makeLayer("accent","Lower third accent","rect2d","#b5ff6d",.145,.79,.009,.105),
+        makeLayer("panel","Lower third panel","rect2d","#101a2a",.36,.79,.43,.105)
+      ];
+      layers = layers.map(layer => layer.id.includes("-panel-") ? { ...layer, opacity: .88 } : layer);
+    } else {
+      layers = [
+        makeLayer("headline","End card — THANK YOU","text2d","#f4f7fb",.5,.39,.07,.1,"THANK YOU"),
+        makeLayer("subtitle","End card — FOLLOW THE STORY","text2d","#b5ff6d",.5,.51,.027,.06,"FOLLOW THE STORY"),
+        makeLayer("cta","End card — SEE YOU NEXT TIME","text2d","#aebbd0",.5,.63,.019,.05,"SEE YOU NEXT TIME"),
+        makeLayer("accent","End card accent","rect2d","#b5ff6d",.5,.57,.12,.005)
+      ];
+    }
+    setSceneLayers(items => [...layers, ...items]);
+    setSelectedLayerId(layers[0].id);
+    setError(""); setStatus(preset.toUpperCase().replace("-"," ") + " COMPOSITION ADDED");
+    requestAnimationFrame(() => drawFrame(elapsedRef.current));
+  };
+
   const addSceneLayer = () => {
     const name = newLayerName.trim() || "Layer " + (sceneLayers.length + 1);
     const id = name.toLowerCase().replace(/[^a-z0-9_-]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
@@ -1257,6 +1295,7 @@ export default function App() {
             {newLayerKind === "text2d" && <label>TEXT<input value={newLayerText} onChange={e => setNewLayerText(e.target.value)} maxLength={80} disabled={exporting} /></label>}
             <button type="button" className="button primary" onClick={addSceneLayer} disabled={exporting}>＋ ADD LAYER</button>
           </div>
+          <div className="composition-presets"><span>QUICK COMPOSITIONS · EDITABLE LAYERS</span><div><button type="button" onClick={()=>applyCompositionPreset("title")} disabled={exporting}>TITLE CARD</button><button type="button" onClick={()=>applyCompositionPreset("lower-third")} disabled={exporting}>LOWER THIRD</button><button type="button" onClick={()=>applyCompositionPreset("end-card")} disabled={exporting}>END CARD</button></div></div>
           {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,-1)} disabled={exporting || sceneLayers[0]?.id===layer.id} aria-label="Move layer up">↑</button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,1)} disabled={exporting || sceneLayers[sceneLayers.length-1]?.id===layer.id} aria-label="Move layer down">↓</button><button type="button" className="layer-duplicate" onClick={() => duplicateSceneLayer(layer.id)} disabled={exporting} aria-label="Duplicate layer">＋</button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
           {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ","rotationX","rotationY","rotationZ","opacity","metalness","roughness"] as const).filter(key => layer.kind.endsWith("3d") || ["x","y","scaleX","scaleY","rotationZ","opacity"].includes(key)).map(key => <label key={key}>{key.toUpperCase()}<input type="number" min={["opacity","metalness","roughness"].includes(key)?0:undefined} max={["opacity","metalness","roughness"].includes(key)?1:undefined} step={["opacity","metalness","roughness"].includes(key)?0.05:0.05} value={layer[key] ?? 0} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <><label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={120} disabled={exporting}/></label><div className="layer-property-grid"><label>FONT<select value={layer.fontFamily ?? "Arial"} onChange={e=>updateSceneLayer(layer.id,{fontFamily:e.target.value})} disabled={exporting}><option>Arial</option><option>Georgia</option><option>Impact</option><option>Courier New</option><option>Trebuchet MS</option><option>Verdana</option><option>Times New Roman</option></select></label><label>WEIGHT<select value={layer.fontWeight ?? 800} onChange={e=>updateSceneLayer(layer.id,{fontWeight:Number(e.target.value)})} disabled={exporting}><option value="400">Regular</option><option value="500">Medium</option><option value="600">Semi Bold</option><option value="700">Bold</option><option value="800">Extra Bold</option><option value="900">Black</option></select></label><label>ALIGN<select value={layer.textAlign ?? "center"} onChange={e=>updateSceneLayer(layer.id,{textAlign:e.target.value as "left"|"center"|"right"})} disabled={exporting}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>OUTLINE PX<input type="number" min="0" max="24" step="1" value={layer.strokeWidth ?? 0} onChange={e=>updateSceneLayer(layer.id,{strokeWidth:Math.max(0,Math.min(24,Number(e.target.value)||0))})} disabled={exporting}/></label><label>SHADOW BLUR<input type="number" min="0" max="80" step="1" value={layer.shadowBlur ?? 0} onChange={e=>updateSceneLayer(layer.id,{shadowBlur:Math.max(0,Math.min(80,Number(e.target.value)||0))})} disabled={exporting}/></label></div><div className="layer-color-row"><label className="layer-text-edit">OUTLINE COLOR<input type="color" value={layer.strokeColor ?? "#000000"} onChange={e=>updateSceneLayer(layer.id,{strokeColor:e.target.value})} disabled={exporting}/></label><label className="layer-text-edit">SHADOW COLOR<input type="color" value={layer.shadowColor ?? "#000000"} onChange={e=>updateSceneLayer(layer.id,{shadowColor:e.target.value})} disabled={exporting}/></label></div></>}<button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput(layer.kind.endsWith("3d")?[layer.x,layer.y,layer.z]:[layer.x,layer.y,0]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>ANIMATE THIS LAYER</button><div className="motion-presets"><span>QUICK MOTION</span><div><button type="button" onClick={()=>applyLayerMotionPreset("rise")} disabled={exporting}>RISE</button><button type="button" onClick={()=>applyLayerMotionPreset("slide")} disabled={exporting}>SLIDE</button><button type="button" onClick={()=>applyLayerMotionPreset("pop")} disabled={exporting}>POP</button><button type="button" onClick={()=>applyLayerMotionPreset("spin")} disabled={exporting}>SPIN</button></div></div><label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label>{layer.kind.endsWith("3d") && <><label className="layer-text-edit">EMISSIVE COLOR<input type="color" value={layer.emissive ?? "#000000"} onChange={e=>updateSceneLayer(layer.id,{emissive:e.target.value})} disabled={exporting}/></label><label className="layer-text-edit">EMISSIVE INTENSITY<input type="number" min="0" max="10" step="0.1" value={layer.emissiveIntensity ?? 0} onChange={e=>updateSceneLayer(layer.id,{emissiveIntensity:Math.max(0,Number(e.target.value)||0)})} disabled={exporting}/></label></>}<div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position and rotation use world units and radians. Metalness, roughness and emissive controls adjust the material." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas; rotation is in radians and opacity ranges from 0 to 1."}</div></div>)}
           <div className="keyframe-note">2D layers render above your script. The top row is drawn last and appears above lower rows. 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
@@ -1292,6 +1331,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.32.0 / MOBILE RENDER PROFILES</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.33.0 / COMPOSITION TEMPLATE LIBRARY</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }

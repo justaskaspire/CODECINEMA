@@ -165,3 +165,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Keep 720p balanced and 1080p high-detail options.
 - All four aspect ratios (16:9, 9:16, 1:1 and 4:5) receive matching output dimensions.
 - Existing export bitrate, FPS, frame-count and 80 MB memory safety checks remain in place.
+
+
+## Composition Template Library (v0.33)
+- Add ready-made Title Card, Lower Third and End Card compositions with one tap.
+- Templates create normal editable 2D scene layers, not flattened images.
+- Edit text, fonts, colors, opacity, position, size, layer order and motion using the existing visual tools.
+- Templates append to the current project and do not replace existing layers or script code.
