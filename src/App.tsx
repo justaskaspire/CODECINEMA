@@ -298,6 +298,8 @@ api.scene(ctx, t, "FINALE", 10, 15, (local, progress) => {
 
 type TimelineTrack = "SCENE" | "VISUAL" | "AUDIO";
 type TimelineMarker = { id: string; time: number; track: TimelineTrack; label: string };
+type VisualTransformProperty = "position" | "rotation" | "scale";
+type VisualKeyframeTrack = { id: string; objectId: string; property: VisualTransformProperty; frames: AnimationKeyframe[] };
 type TrackValue = number | number[];
 type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
 const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], defaultEase: "linear" | "smooth" | "in" | "out" = "smooth"): TrackValue => {
@@ -320,8 +322,21 @@ const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], default
   return p < 1 ? a : b;
 };
 
+let activeVisualTracks: VisualKeyframeTrack[] = [];
+
 const api = {
-  render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config: ThreeSceneConfig = {}) => threeSceneRenderer.render(ctx,time,width,height,config),
+  render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config: ThreeSceneConfig = {}) => {
+    const objects = (config.objects ?? []).map(object => {
+      const animated = { ...object };
+      for (const track of activeVisualTracks) {
+        if (track.objectId !== object.id) continue;
+        const value = sampleAnimationTrack(time, track.frames);
+        if (Array.isArray(value) && value.length === 3) animated[track.property] = value as [number, number, number];
+      }
+      return animated;
+    });
+    threeSceneRenderer.render(ctx,time,width,height,{ ...config, objects });
+  },
   // Keyframe tracks return a number or vector at any exact timeline time.
   track: (time: number, frames: AnimationKeyframe[], easing: "linear" | "smooth" | "in" | "out" = "smooth") => sampleAnimationTrack(time, frames, easing),
   // Deterministic XZ orbit helper for planets, cameras and moving props.
@@ -644,6 +659,11 @@ export default function App() {
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const [timelineTrack, setTimelineTrack] = useState<TimelineTrack>("SCENE");
   const [timelineMarkers, setTimelineMarkers] = useState<TimelineMarker[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-timeline") || "[]"); return Array.isArray(saved) ? saved.filter((m: any) => m && typeof m.id === "string" && Number.isFinite(m.time) && ["SCENE","VISUAL","AUDIO"].includes(m.track) && typeof m.label === "string") : []; } catch { return []; } });
+  const [visualTracks, setVisualTracks] = useState<VisualKeyframeTrack[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-visual-tracks") || "[]"); return Array.isArray(saved) ? saved.filter((track: any) => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map((track: any) => ({ ...track, frames: track.frames.filter((frame: any) => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every((v: any) => Number.isFinite(v))).map((frame: any) => ({ ...frame, value: (frame.value as number[]).map(Number) })) })) : []; } catch { return []; } });
+  const [objectIdInput, setObjectIdInput] = useState("earth");
+  const [propertyInput, setPropertyInput] = useState<VisualTransformProperty>("position");
+  const [transformInput, setTransformInput] = useState<[number, number, number]>([0, 0, 0]);
+  activeVisualTracks = visualTracks;
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<string[]>([code]);
   const historyIndexRef = useRef(0);
@@ -692,9 +712,21 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks]);
   const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
   const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
+  const addVisualKeyframe = () => {
+    const objectId = objectIdInput.trim();
+    if (!objectId) { setError("Enter the exact 3D object ID from your api.render3D script."); return; }
+    const time = Math.max(0, Math.min(duration, elapsedRef.current));
+    setVisualTracks(items => {
+      const existing = items.find(track => track.objectId === objectId && track.property === propertyInput);
+      const frame: AnimationKeyframe = { time, value: [...transformInput], ease: "smooth" };
+      if (!existing) return [...items, { id: objectId + "-" + propertyInput + "-" + Date.now(), objectId, property: propertyInput, frames: [frame] }];
+      return items.map(track => track.id !== existing.id ? track : { ...track, frames: [...track.frames.filter(item => Math.abs(item.time - time) > 0.001), frame].sort((a,b) => a.time-b.time) });
+    });
+    setError(""); setStatus("3D KEYFRAME ADDED"); drawFrame(time);
+  };
 
   const changeCode = (next: string) => {
     const history = historyRef.current;
@@ -928,7 +960,7 @@ export default function App() {
       name: projectName,
       code,
       settings: { duration, format, quality, fps, container, bitrate },
-      timeline: { markers: timelineMarkers }
+      timeline: { markers: timelineMarkers, visualTracks }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
     setStatus("PROJECT SAVED");
@@ -940,7 +972,7 @@ export default function App() {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
         settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
-        timeline?: { markers?: TimelineMarker[] };
+        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[] };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
         throw new Error("This is not a supported CODECINEMA project file.");
@@ -955,6 +987,7 @@ export default function App() {
       if (settings.container === "mp4" || settings.container === "webm") setContainer(settings.container);
       if ([4,6,8,12].includes(settings.bitrate || 0)) setBitrate(settings.bitrate!);
       if (Array.isArray(project.timeline?.markers)) setTimelineMarkers(project.timeline.markers.filter(marker => marker && typeof marker.id === "string" && Number.isFinite(marker.time) && ["SCENE","VISUAL","AUDIO"].includes(marker.track) && typeof marker.label === "string").map(marker => ({ ...marker, time: Math.max(0, Math.min(settings.duration || 60, marker.time)) })));
+      setVisualTracks(Array.isArray(project.timeline?.visualTracks) ? project.timeline.visualTracks.filter(track => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map(track => ({ ...track, frames: track.frames.filter(frame => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every(Number.isFinite)).map(frame => ({ ...frame, time: Math.max(0, Math.min(settings.duration || 60, frame.time)), value: (frame.value as number[]).map(Number) })) })) : []);
       setExample("");
       setError("");
       setElapsed(0); elapsedRef.current = 0;
@@ -1099,7 +1132,18 @@ export default function App() {
           <div className="timeline-ruler">{Array.from({length: 7}, (_,i) => { const time = duration * i / 6; return <button key={i} type="button" style={{left: (time/duration*100) + "%"}} onClick={() => scrubTo(time)}>{time.toFixed(0)}s</button>; })}</div>
           <div className="timeline-lanes">{(["SCENE","VISUAL","AUDIO"] as TimelineTrack[]).map(track => <div className="timeline-lane" key={track}><span className="timeline-lane-name">{track}</span><div className="timeline-lane-track" onClick={e => { const rect=e.currentTarget.getBoundingClientRect(); scrubTo(((e.clientX-rect.left)/rect.width)*duration); }}>{timelineMarkers.filter(marker => marker.track === track).map(marker => <button key={marker.id} type="button" className={"timeline-marker marker-" + track.toLowerCase()} style={{left: (marker.time/duration*100) + "%"}} title={marker.label + " · " + marker.time.toFixed(2) + "s"} onClick={e => { e.stopPropagation(); scrubTo(marker.time); }}><i />{marker.label}</button>)}<span className="timeline-playhead" style={{left: (elapsed/duration*100) + "%"}} /></div></div>)}</div>
           {timelineMarkers.length > 0 && <div className="timeline-cue-list">{[...timelineMarkers].sort((x,y)=>x.time-y.time).map(marker => <div className="timeline-cue" key={marker.id}><button type="button" onClick={() => scrubTo(marker.time)}><b>{marker.track}</b><span>{marker.label}</span><em>{marker.time.toFixed(2)}s</em></button><button type="button" aria-label={"Delete " + marker.label} onClick={() => setTimelineMarkers(items => items.filter(item => item.id !== marker.id))}>×</button></div>)}</div>}
-          <div className="timeline-footnote">Cues are saved with your project. They are editing guides, not yet automatic animation keyframes.</div>
+          <div className="timeline-footnote">Scene, visual and audio cues are editorial markers. The 3D Animation Director below creates real transform keyframes used in preview and export.</div>
+        </section>
+        <section className="keyframe-panel" aria-label="3D animation keyframe editor">
+          <div className="keyframe-heading"><div><span className="section-kicker">05 / ANIMATION DIRECTOR</span><h2>3D Keyframes</h2><p>Animate an object by matching its exact ID in your 3D script.</p></div><span className="keyframe-count">{visualTracks.length} TRACKS</span></div>
+          <label className="keyframe-object">OBJECT ID<input value={objectIdInput} onChange={e => setObjectIdInput(e.target.value)} placeholder="e.g. earth" disabled={exporting} /></label>
+          <div className="keyframe-controls">
+            <label>PROPERTY<select value={propertyInput} disabled={exporting} onChange={e => { const next = e.target.value as VisualTransformProperty; setPropertyInput(next); setTransformInput(next === "scale" ? [1,1,1] : [0,0,0]); }}><option value="position">POSITION</option><option value="rotation">ROTATION (RAD)</option><option value="scale">SCALE</option></select></label>
+            {(["X","Y","Z"] as const).map((axis,index) => <label key={axis}>{axis}<input type="number" step="0.1" value={transformInput[index]} disabled={exporting} onChange={e => setTransformInput(current => current.map((v,i) => i === index ? Number(e.target.value) : v) as [number,number,number])} /></label>)}
+            <button type="button" className="button primary keyframe-add" onClick={addVisualKeyframe} disabled={exporting}>＋ KEYFRAME AT {elapsed.toFixed(2)}s</button>
+          </div>
+          {visualTracks.length > 0 && <div className="keyframe-track-list">{visualTracks.map(track => <div className="keyframe-track" key={track.id}><div className="keyframe-track-title"><b>{track.objectId}</b><span>{track.property.toUpperCase()}</span><button type="button" onClick={() => setVisualTracks(items => items.filter(item => item.id !== track.id))} disabled={exporting} aria-label={"Delete " + track.objectId + " " + track.property}>×</button></div><div className="keyframe-points">{track.frames.map(frame => <button type="button" key={frame.time} onClick={() => scrubTo(frame.time)} disabled={exporting}><b>{frame.time.toFixed(2)}s</b><span>{(frame.value as number[]).map((v: number) => Number(v).toFixed(2)).join(" / ")}</span></button>)}</div></div>)}</div>}
+          <div className="keyframe-note">Keyframes interpolate smoothly between timestamps and are applied to 3D position, rotation and scale during both preview and video export. Rotation values use radians. Track values override that object property.</div>
         </section>
         <div className="render-settings">
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
@@ -1121,6 +1165,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.23.0 / VISUAL TIMELINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.24.0 / 3D KEYFRAME DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
