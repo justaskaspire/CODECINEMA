@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderExport, type ExportContainer } from "./mediaExport";
-import { ThreeSceneRenderer, type ThreeSceneConfig } from "./threeEngine";
+import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec } from "./threeEngine";
 
 const threeSceneRenderer = new ThreeSceneRenderer();
 
@@ -300,6 +300,8 @@ type TimelineTrack = "SCENE" | "VISUAL" | "AUDIO";
 type TimelineMarker = { id: string; time: number; track: TimelineTrack; label: string };
 type VisualTransformProperty = "position" | "rotation" | "scale";
 type VisualKeyframeTrack = { id: string; objectId: string; property: VisualTransformProperty; frames: AnimationKeyframe[] };
+type SceneLayerKind = "text2d" | "rect2d" | "circle2d" | "box3d" | "sphere3d" | "cone3d" | "torus3d";
+type SceneLayer = { id: string; name: string; kind: SceneLayerKind; visible: boolean; color: string; x: number; y: number; z: number; scaleX: number; scaleY: number; scaleZ: number; text?: string };
 type TrackValue = number | number[];
 type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
 const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], defaultEase: "linear" | "smooth" | "in" | "out" = "smooth"): TrackValue => {
@@ -323,10 +325,24 @@ const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], default
 };
 
 let activeVisualTracks: VisualKeyframeTrack[] = [];
+let activeSceneLayers: SceneLayer[] = [];
+const drawSceneOverlays = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+  for (const layer of activeSceneLayers) {
+    if (!layer.visible || !["text2d","rect2d","circle2d"].includes(layer.kind)) continue;
+    ctx.save(); ctx.fillStyle = layer.color; ctx.globalAlpha = 1;
+    const x = layer.x * width, y = layer.y * height;
+    if (layer.kind === "text2d") { ctx.font = `800 ${Math.max(10, layer.scaleX * Math.min(width,height))}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(layer.text || layer.name, x, y, width * .9); }
+    else if (layer.kind === "rect2d") { const w = Math.max(2, layer.scaleX * width), h = Math.max(2, layer.scaleY * height); ctx.fillRect(x-w/2,y-h/2,w,h); }
+    else { ctx.beginPath(); ctx.arc(x,y,Math.max(2,layer.scaleX*Math.min(width,height)),0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+};
 
 const api = {
   render3D: (ctx: CanvasRenderingContext2D, time: number, width: number, height: number, config: ThreeSceneConfig = {}) => {
-    const objects = (config.objects ?? []).map(object => {
+    const layerObjects: ThreeObjectSpec[] = activeSceneLayers.filter(layer => layer.visible && layer.kind.endsWith("3d")).map(layer => ({ id: layer.id, type: layer.kind === "box3d" ? "box" : layer.kind === "sphere3d" ? "sphere" : layer.kind === "cone3d" ? "cone" : "torus", color: layer.color, position: [layer.x,layer.y,layer.z], scale: [layer.scaleX,layer.scaleY,layer.scaleZ] }));
+    const merged = [...(config.objects ?? []).filter(object => !layerObjects.some(layer => layer.id === object.id)), ...layerObjects];
+    const objects = merged.map(object => {
       const animated = { ...object };
       for (const track of activeVisualTracks) {
         if (track.objectId !== object.id) continue;
@@ -663,7 +679,14 @@ export default function App() {
   const [objectIdInput, setObjectIdInput] = useState("earth");
   const [propertyInput, setPropertyInput] = useState<VisualTransformProperty>("position");
   const [transformInput, setTransformInput] = useState<[number, number, number]>([0, 0, 0]);
+  const [sceneLayers, setSceneLayers] = useState<SceneLayer[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-layers") || "[]"); return Array.isArray(saved) ? saved.filter((layer: any) => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map((layer: any) => ({ ...layer, visible: layer.visible !== false })) : []; } catch { return []; } });
+  const [selectedLayerId, setSelectedLayerId] = useState("");
+  const [newLayerKind, setNewLayerKind] = useState<SceneLayerKind>("sphere3d");
+  const [newLayerName, setNewLayerName] = useState("New Layer");
+  const [newLayerColor, setNewLayerColor] = useState("#65b8ff");
+  const [newLayerText, setNewLayerText] = useState("YOUR TITLE");
   activeVisualTracks = visualTracks;
+  activeSceneLayers = sceneLayers;
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<string[]>([code]);
   const historyIndexRef = useRef(0);
@@ -712,9 +735,18 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers]);
   const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
   const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
+  const addSceneLayer = () => {
+    const name = newLayerName.trim() || "Layer " + (sceneLayers.length + 1);
+    const id = name.toLowerCase().replace(/[^a-z0-9_-]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
+    const is3d = newLayerKind.endsWith("3d");
+    const layer: SceneLayer = { id, name, kind: newLayerKind, visible: true, color: newLayerColor, x: is3d ? 0 : .5, y: is3d ? 0 : .5, z: 0, scaleX: newLayerKind === "text2d" ? .055 : newLayerKind === "circle2d" ? .07 : is3d ? 1 : .28, scaleY: is3d ? 1 : .12, scaleZ: 1, text: newLayerText };
+    setSceneLayers(items => [...items, layer]); setSelectedLayerId(id); setError(""); setStatus("LAYER ADDED");
+    requestAnimationFrame(() => drawFrame(elapsedRef.current));
+  };
+  const updateSceneLayer = (id: string, patch: Partial<SceneLayer>) => setSceneLayers(items => items.map(layer => layer.id === id ? { ...layer, ...patch } : layer));
   const addVisualKeyframe = () => {
     const objectId = objectIdInput.trim();
     if (!objectId) { setError("Enter the exact 3D object ID from your api.render3D script."); return; }
@@ -804,6 +836,7 @@ export default function App() {
     try {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       renderRef.current(ctx, time, canvas.width, canvas.height, api);
+      drawSceneOverlays(ctx, canvas.width, canvas.height);
       setError("");
     } catch (e) {
       setError(scriptError(e));
@@ -917,6 +950,7 @@ export default function App() {
           if (!ctx || !renderRef.current) throw new Error("The preview canvas is unavailable.");
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           renderRef.current(ctx, time, canvas.width, canvas.height, api);
+          drawSceneOverlays(ctx, canvas.width, canvas.height);
           elapsedRef.current = time;
           setElapsed(time);
         },
@@ -960,7 +994,7 @@ export default function App() {
       name: projectName,
       code,
       settings: { duration, format, quality, fps, container, bitrate },
-      timeline: { markers: timelineMarkers, visualTracks }
+      timeline: { markers: timelineMarkers, visualTracks, sceneLayers }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
     setStatus("PROJECT SAVED");
@@ -972,7 +1006,7 @@ export default function App() {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
         settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number };
-        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[] };
+        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[] };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
         throw new Error("This is not a supported CODECINEMA project file.");
@@ -988,6 +1022,8 @@ export default function App() {
       if ([4,6,8,12].includes(settings.bitrate || 0)) setBitrate(settings.bitrate!);
       if (Array.isArray(project.timeline?.markers)) setTimelineMarkers(project.timeline.markers.filter(marker => marker && typeof marker.id === "string" && Number.isFinite(marker.time) && ["SCENE","VISUAL","AUDIO"].includes(marker.track) && typeof marker.label === "string").map(marker => ({ ...marker, time: Math.max(0, Math.min(settings.duration || 60, marker.time)) })));
       setVisualTracks(Array.isArray(project.timeline?.visualTracks) ? project.timeline.visualTracks.filter(track => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map(track => ({ ...track, frames: track.frames.filter(frame => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every(Number.isFinite)).map(frame => ({ ...frame, time: Math.max(0, Math.min(settings.duration || 60, frame.time)), value: (frame.value as number[]).map(Number) })) })) : []);
+      setSceneLayers(Array.isArray(project.timeline?.sceneLayers) ? project.timeline.sceneLayers.filter(layer => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map(layer => ({ ...layer, visible: layer.visible !== false })) : []);
+      setSelectedLayerId("");
       setExample("");
       setError("");
       setElapsed(0); elapsedRef.current = 0;
@@ -1134,6 +1170,19 @@ export default function App() {
           {timelineMarkers.length > 0 && <div className="timeline-cue-list">{[...timelineMarkers].sort((x,y)=>x.time-y.time).map(marker => <div className="timeline-cue" key={marker.id}><button type="button" onClick={() => scrubTo(marker.time)}><b>{marker.track}</b><span>{marker.label}</span><em>{marker.time.toFixed(2)}s</em></button><button type="button" aria-label={"Delete " + marker.label} onClick={() => setTimelineMarkers(items => items.filter(item => item.id !== marker.id))}>×</button></div>)}</div>}
           <div className="timeline-footnote">Scene, visual and audio cues are editorial markers. The 3D Animation Director below creates real transform keyframes used in preview and export.</div>
         </section>
+        <section className="layer-panel" aria-label="2D and 3D object layer editor">
+          <div className="keyframe-heading"><div><span className="section-kicker">06 / SCENE COMPOSER</span><h2>Object Layers</h2><p>Create and manage editable 2D overlays and 3D primitives.</p></div><span className="keyframe-count">{sceneLayers.length} LAYERS</span></div>
+          <div className="layer-create">
+            <label>LAYER TYPE<select value={newLayerKind} disabled={exporting} onChange={e => setNewLayerKind(e.target.value as SceneLayerKind)}><optgroup label="2D OVERLAY"><option value="text2d">Text</option><option value="rect2d">Rectangle</option><option value="circle2d">Circle</option></optgroup><optgroup label="3D OBJECT"><option value="box3d">3D Box</option><option value="sphere3d">3D Sphere</option><option value="cone3d">3D Cone</option><option value="torus3d">3D Torus</option></optgroup></select></label>
+            <label>NAME<input value={newLayerName} onChange={e => setNewLayerName(e.target.value)} maxLength={32} disabled={exporting} /></label>
+            <label>COLOR<input type="color" value={newLayerColor} onChange={e => setNewLayerColor(e.target.value)} disabled={exporting} /></label>
+            {newLayerKind === "text2d" && <label>TEXT<input value={newLayerText} onChange={e => setNewLayerText(e.target.value)} maxLength={80} disabled={exporting} /></label>}
+            <button type="button" className="button primary" onClick={addSceneLayer} disabled={exporting}>＋ ADD LAYER</button>
+          </div>
+          {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
+          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ"] as const).filter(key => layer.kind.endsWith("3d") || key !== "z" && key !== "scaleZ").map(key => <label key={key}>{key.toUpperCase()}<input type="number" step="0.05" value={layer[key]} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}<label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label><div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position uses world units. Add a matching 3D keyframe track to animate this layer." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas."}</div></div>)}
+          <div className="keyframe-note">2D layers render above your script. 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
+        </section>
         <section className="keyframe-panel" aria-label="3D animation keyframe editor">
           <div className="keyframe-heading"><div><span className="section-kicker">05 / ANIMATION DIRECTOR</span><h2>3D Keyframes</h2><p>Animate an object by matching its exact ID in your 3D script.</p></div><span className="keyframe-count">{visualTracks.length} TRACKS</span></div>
           <label className="keyframe-object">OBJECT ID<input value={objectIdInput} onChange={e => setObjectIdInput(e.target.value)} placeholder="e.g. earth" disabled={exporting} /></label>
@@ -1165,6 +1214,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.24.0 / 3D KEYFRAME DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.25.0 / VISUAL LAYER STUDIO</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
