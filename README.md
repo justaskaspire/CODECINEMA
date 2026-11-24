@@ -151,3 +151,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Add adjustable text outlines and configurable shadow color/blur.
 - Typography settings are part of the normal scene-layer project data and render in preview and frame-by-frame export.
 - Fonts use local system/browser fonts; no external font download or paid font service is required.
+
+
+## Audio Mixer (v0.31)
+- Trim the beginning and optional end of an imported local audio file.
+- Adjust music volume (0–150%) and add linear fade-in/fade-out envelopes.
+- Audio edits are applied to the decoded audio buffer during local export; source files are not uploaded.
+- Audio is limited to the video duration and the existing mobile-safe export memory budget.

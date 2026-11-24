@@ -20,6 +20,11 @@ type ExportOptions = {
   bitrateMbps: number;
   container: ExportContainer;
   audioFile?: File | null;
+  audioStartSeconds?: number;
+  audioEndSeconds?: number;
+  audioVolume?: number;
+  audioFadeInSeconds?: number;
+  audioFadeOutSeconds?: number;
   isCancelled: () => boolean;
   onProgress: (progress: number) => void;
 };
@@ -31,7 +36,7 @@ function nextTask(): Promise<void> {
 export async function renderExport(options: ExportOptions): Promise<Blob> {
   const {
     canvas, renderFrame, duration, fps, bitrateMbps, container,
-    audioFile, isCancelled, onProgress,
+    audioFile, audioStartSeconds = 0, audioEndSeconds = 0, audioVolume = 1, audioFadeInSeconds = 0, audioFadeOutSeconds = 0, isCancelled, onProgress,
   } = options;
 
   const estimatedVideoBytes = duration * bitrateMbps * 1_000_000 / 8;
@@ -92,17 +97,24 @@ export async function renderExport(options: ExportOptions): Promise<Blob> {
     started = true;
 
     if (decodedAudio && audioSource) {
-      const frameCount = Math.min(
-        decodedAudio.length,
-        Math.ceil(duration * decodedAudio.sampleRate),
-      );
-      const clipped = audioContext!.createBuffer(
-        decodedAudio.numberOfChannels,
-        frameCount,
-        decodedAudio.sampleRate,
-      );
+      const sampleRate = decodedAudio.sampleRate;
+      const startFrame = Math.max(0, Math.min(decodedAudio.length, Math.floor(Math.max(0,audioStartSeconds) * sampleRate)));
+      const requestedEnd = audioEndSeconds > 0 ? Math.floor(audioEndSeconds * sampleRate) : decodedAudio.length;
+      const endFrame = Math.max(startFrame, Math.min(decodedAudio.length, requestedEnd));
+      const frameCount = Math.min(endFrame - startFrame, Math.ceil(duration * sampleRate));
+      if (frameCount <= 0) throw new Error("Audio trim range is empty. Set TRIM OUT after TRIM IN.");
+      const clipped = audioContext!.createBuffer(decodedAudio.numberOfChannels, frameCount, sampleRate);
+      const fadeInFrames = Math.max(0, Math.floor(Math.max(0,audioFadeInSeconds) * sampleRate));
+      const fadeOutFrames = Math.max(0, Math.floor(Math.max(0,audioFadeOutSeconds) * sampleRate));
+      const volume = Math.max(0, Math.min(1.5, audioVolume));
       for (let channel = 0; channel < decodedAudio.numberOfChannels; channel++) {
-        clipped.copyToChannel(decodedAudio.getChannelData(channel).subarray(0, frameCount), channel);
+        const source = decodedAudio.getChannelData(channel).subarray(startFrame, startFrame + frameCount);
+        const outputChannel = clipped.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+          const fadeIn = fadeInFrames > 0 ? Math.min(1, i / fadeInFrames) : 1;
+          const fadeOut = fadeOutFrames > 0 ? Math.min(1, (frameCount - 1 - i) / fadeOutFrames) : 1;
+          outputChannel[i] = source[i] * volume * Math.max(0, Math.min(fadeIn, fadeOut));
+        }
       }
       await audioSource.add(clipped);
       audioSource.close();

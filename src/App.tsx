@@ -680,6 +680,11 @@ export default function App() {
   const [fps, setFps] = useState(30);
   const [container, setContainer] = useState<ExportContainer>("mp4");
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioTrimStart, setAudioTrimStart] = useState(0);
+  const [audioTrimEnd, setAudioTrimEnd] = useState(0);
+  const [audioVolume, setAudioVolume] = useState(1);
+  const [audioFadeIn, setAudioFadeIn] = useState(0);
+  const [audioFadeOut, setAudioFadeOut] = useState(0);
   const [renderProgress, setRenderProgress] = useState(0);
   const [webCodecsAvailable, setWebCodecsAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }) | null>(null);
@@ -1006,6 +1011,11 @@ export default function App() {
         bitrateMbps: bitrate,
         container,
         audioFile,
+        audioStartSeconds: audioTrimStart,
+        audioEndSeconds: audioTrimEnd,
+        audioVolume,
+        audioFadeInSeconds: audioFadeIn,
+        audioFadeOutSeconds: audioFadeOut,
         isCancelled: () => cancelExportRef.current,
         onProgress: progress => {
           setRenderProgress(progress);
@@ -1270,7 +1280,7 @@ export default function App() {
           <label>CONTAINER <select value={container} disabled={exporting} onChange={e => setContainer(e.target.value as ExportContainer)}><option value="mp4">MP4 · H.264</option><option value="webm">WebM · VP9 / VP8</option></select></label>
           <label>BITRATE <select value={bitrate} disabled={exporting} onChange={e => setBitrate(Number(e.target.value))}><option value={4}>4 Mbps · light</option><option value={6}>6 Mbps · balanced</option><option value={8}>8 Mbps · high</option><option value={12}>12 Mbps · max</option></select></label>
           <label className="button secondary audio-picker">♫ ADD MUSIC<input hidden type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.opus" disabled={exporting} onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 50 * 1024 * 1024) setError("Choose an audio file smaller than 50 MB."); else if (file) { setAudioFile(file); setError(""); } e.currentTarget.value = ""; }} /></label>
-          {audioFile && <span className="audio-name">♪ {audioFile.name}<button type="button" onClick={() => setAudioFile(null)} disabled={exporting} aria-label="Remove music">×</button></span>}
+          {audioFile && <><span className="audio-name">♪ {audioFile.name}<button type="button" onClick={() => {setAudioFile(null);setAudioTrimStart(0);setAudioTrimEnd(0);setAudioFadeIn(0);setAudioFadeOut(0);setAudioVolume(1);}} disabled={exporting} aria-label="Remove music">×</button></span><div className="audio-mixer"><label>TRIM IN <input type="number" min="0" max="3600" step="0.1" value={audioTrimStart} onChange={e=>setAudioTrimStart(Math.max(0,Number(e.target.value)||0))} disabled={exporting}/> s</label><label>TRIM OUT <input type="number" min="0" max="3600" step="0.1" value={audioTrimEnd} onChange={e=>setAudioTrimEnd(Math.max(0,Number(e.target.value)||0))} disabled={exporting}/> s <small>0 = end</small></label><label>VOLUME <input type="range" min="0" max="1.5" step="0.05" value={audioVolume} onChange={e=>setAudioVolume(Number(e.target.value))} disabled={exporting}/><b>{Math.round(audioVolume*100)}%</b></label><label>FADE IN <input type="number" min="0" max="15" step="0.1" value={audioFadeIn} onChange={e=>setAudioFadeIn(Math.max(0,Number(e.target.value)||0))} disabled={exporting}/> s</label><label>FADE OUT <input type="number" min="0" max="15" step="0.1" value={audioFadeOut} onChange={e=>setAudioFadeOut(Math.max(0,Number(e.target.value)||0))} disabled={exporting}/> s</label></div></>}
           {exporting && <div className="render-progress" role="progressbar" aria-valuenow={Math.round(renderProgress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${renderProgress * 100}%` }} /></div>}
           <div className="render-note"><span>●</span> {webCodecsAvailable ? "WebCodecs ready · local MP4 / WebM" : "WebCodecs unavailable · check Chrome version"} · {Math.ceil(duration * fps).toLocaleString()} frames · No cloud rendering.</div>
         </div>
@@ -1282,6 +1292,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.30.0 / TYPOGRAPHY STUDIO</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.31.0 / AUDIO MIXER</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
