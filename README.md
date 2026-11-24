@@ -1,6 +1,6 @@
 # CODECINEMA
 
-**Stable release: v1.1.0** — a free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Three.js/WebGL.
+**Stable release: v1.2.0** — a free, browser-based, code-driven video studio built with React, TypeScript, Canvas 2D and Babylon.js/WebGL.
 
 CODECINEMA combines a JavaScript frame editor with visual 2D/3D scene tools, keyframe animation, typography, lighting, particles, local audio mixing and browser-based video export. Projects stay in your browser unless you choose to export or share a project file.
 
@@ -10,7 +10,7 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
-- `api.render3D(ctx, t, w, h, config)`: real Three.js/WebGL 3D rendering composited into the current 2D frame. Configure a perspective camera, lights, geometry, materials and object transforms. Keep object IDs stable and animate positions/rotations with `t`; quality can be `low`, `medium` or `high`.
+- `api.render3D(ctx, t, w, h, config)`: real Babylon.js/WebGL 3D rendering composited into the current 2D frame. Configure a perspective camera, lights, geometry, materials and object transforms. Keep object IDs stable and animate positions/rotations with `t`; quality can be `low`, `medium` or `high`.
 - `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, `spring`, `cubicBezier`, `stagger`, `counter`, `pathPoint`, `roundedRect`, `blend`, `clipCircle`, `blur`, `ripple`, `lensFlare` and `lightning`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
@@ -69,7 +69,7 @@ npm run build
 - MP4 and WebM export use browser-provided WebCodecs encoders through Mediabunny. Exact codec availability depends on the browser/device.
 - Audio is optional and imported from a local file; supported audio formats depend on the browser's AudioContext decoder.
 - Export is rendered locally and uses an in-memory output buffer. For large projects, lower bitrate, resolution or duration to avoid memory pressure on mobile devices.
-- Three.js is bundled for real WebGL 3D rendering. WebGL support and performance depend on the browser and device. The 3D renderer uses reduced internal resolution in medium/low quality modes and disables expensive antialiasing/shadows by default. FFmpeg and WebGPU are not bundled in this mobile-first build. They remain optional future modules rather than loading large runtimes on every launch.
+- Babylon.js is bundled for real WebGL 3D rendering. The previous Three.js renderer remains in the source as a reference/rollback path. WebGL support and performance depend on the browser and device. The 3D renderer uses reduced internal resolution in medium/low quality modes and disables expensive antialiasing/shadows by default. FFmpeg and WebGPU are not bundled in this mobile-first build. They remain optional future modules rather than loading large runtimes on every launch.
 
 ## 3D Pro engine (v0.21)
 The 3D renderer also supports:
@@ -319,10 +319,10 @@ The `feature/cinema-engine-suite-v1.1-clean` branch adds deterministic scripting
 - `api.audioTimeline(t, clips)` calculates active clip gain envelopes for timeline-based audio mixing. The existing Audio Mixer remains the actual audio import/trim/fade/export path; this helper is a scripting foundation, not a multi-track UI yet.
 - `api.renderPlan(duration, fps, bitrateMbps, width, height)` estimates frame count and output size and reports whether the estimate fits the current 80 MB mobile-safe export budget.
 
-These helpers are deterministic at exact timeline times and add no external runtime dependencies. This is a development candidate; merge and release only after CI and Android device testing.
+These helpers are deterministic at exact timeline times and add no external runtime dependencies. This is the stable 1.2.0 release. Android performance and compatibility should still be verified on target devices; environment-map reflections and depth-of-field post-processing are not yet supported by the Babylon.js backend.
 
 
-## Babylon.js renderer (v1.2.0 development candidate)
+## Babylon.js renderer (v1.2.0)
 
 The default `api.render3D(ctx, t, w, h, config)` backend is now Babylon.js. The existing Canvas 2D composition, visual layers, keyframe tracks, timeline, audio workflow and local WebCodecs export remain in place.
 
