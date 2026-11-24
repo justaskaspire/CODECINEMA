@@ -239,3 +239,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Particle fields merge with script-defined particle specs by ID.
 - Systems autosave locally and are included in portable projects.
 - Visual editor caps each system at 1,200 particles to keep phone workloads controlled; the lower-level script API retains its own renderer limits.
+
+
+## Particle Preset Library (v0.44)
+- One-tap Stars, Dust and Snow particle configurations.
+- Presets update the selected particle system's real editable parameters.
+- Every preset can be further customized and exported through the existing Three.js renderer.
