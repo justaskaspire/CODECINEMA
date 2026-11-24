@@ -7,12 +7,13 @@ Write JavaScript that draws a frame. CODECINEMA calls your script once for every
 - `ctx`: Canvas 2D drawing context
 - `t`: current video time in seconds
 - `w` and `h`: output dimensions in pixels
-- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, `spring`, `cubicBezier`, `stagger`, `counter`, `pathPoint`, and `roundedRect(ctx, x, y, width, height, radius)`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
+- `api`: helper functions — `clamp`, `lerp`, `map`, `ease`, `easeOut`, `smoothstep`, `pingPong`, `mod`, seeded `random`, value `noise`, `hsla`, `fitText`, `textReveal`, `typewriter`, `textMask`, `spring`, `cubicBezier`, `stagger`, `counter`, `pathPoint`, `roundedRect`, `blend`, `clipCircle`, `blur`, `ripple`, `lensFlare` and `lightning`, plus `scene(ctx, t, name, start, end, draw, options)` for timed scenes with fade, slide or zoom transitions, and `glow`, `vignette`, `particles`, `grain`, `colorWash`, `shake` and `camera` helpers
 
 Use normal Canvas 2D APIs, JavaScript math, loops, gradients, paths, transforms and text to create animations. The same script runs during preview and export.
 
 ## Features
 - Motion graphics engine: damped spring physics, custom cubic-Bezier easing, staggered sequences, animated number counters and smooth Catmull–Rom path following with tangent angles
+- Compositing and lighting engine: scoped blend modes, circular clipping masks, blur callbacks, animated ripple rings, deterministic lightning bolts and cinematic lens flares
 - Typography engine: staggered character/word reveals, fade/rise/tracking modes, timed typewriter text and directional gradient text masks
 - Cinematic effects helpers: radial glow, vignette, deterministic particles, film grain and color wash
 - Camera helpers: deterministic shake offsets and scoped camera transforms
