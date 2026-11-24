@@ -258,3 +258,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Edit exact cue times and move cues between tracks.
 - Time edits are clamped to the project duration; the cue list and timeline markers remain sorted.
 - Cue edits are autosaved and included in project files.
+
+
+## 2D Gradient Studio (v0.47)
+- Switch text and 2D shape layers between solid fills and editable linear gradients.
+- Set gradient end color and angle; the original layer color is the gradient start.
+- Gradients render directly on Canvas 2D and remain consistent in preview, PNG frame capture and video export.
+- Gradient settings are stored with scene layers and portable projects.
