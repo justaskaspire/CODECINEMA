@@ -158,3 +158,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Adjust music volume (0–150%) and add linear fade-in/fade-out envelopes.
 - Audio edits are applied to the decoded audio buffer during local export; source files are not uploaded.
 - Audio is limited to the video duration and the existing mobile-safe export memory budget.
+
+
+## Mobile Render Profiles (v0.32)
+- Add a lightweight 540p render profile for quicker previews/exports and lower memory pressure on phones.
+- Keep 720p balanced and 1080p high-detail options.
+- All four aspect ratios (16:9, 9:16, 1:1 and 4:5) receive matching output dimensions.
+- Existing export bitrate, FPS, frame-count and 80 MB memory safety checks remain in place.
