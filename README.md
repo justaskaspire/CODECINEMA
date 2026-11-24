@@ -104,3 +104,13 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Keyframe tracks autosave locally and are included in portable `.cinema.json` projects.
 - Rotation values are radians. A visual track overrides that object's matching transform property.
 - This editor animates transforms of existing script-defined 3D objects; it does not create 3D objects or replace the code editor.
+
+
+## Visual Object Layer Studio (v0.25)
+- Create 2D text, rectangle and circle overlay layers, plus 3D box, sphere, cone and torus layers.
+- Select layers to edit their color, position and size/scale; hide/show or delete individual layers.
+- 2D overlay coordinates use normalized canvas positions (0–1) and render above the script output.
+- 3D layers use Three.js world coordinates and are added to scenes when the script calls `api.render3D`.
+- Layer definitions autosave locally and are included in portable `.cinema.json` project files.
+- 3D layers can be animated with the v0.24 keyframe director by using the generated layer ID as the object ID.
+- The layer editor manages objects created inside the studio; it does not yet extract arbitrary objects drawn directly by user code into editable layers.
