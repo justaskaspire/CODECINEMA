@@ -184,3 +184,12 @@ footer{height:38px}
 .layer-duplicate{color:#b5ff6d}
 .layer-keyframe-load{width:100%;margin-top:10px;min-height:38px}
 @media(max-width:680px){.camera-control-grid{grid-template-columns:1fr}.camera-axis-group input,.camera-fov input{min-height:42px;font-size:12px}.camera-reset{min-height:42px}.layer-row{gap:3px;padding:4px}.layer-order,.layer-duplicate,.layer-visibility,.layer-delete{width:29px;height:32px}}
+
+
+/* v0.29 — one-tap layer motion presets */
+.motion-presets{display:flex;flex-direction:column;gap:7px;margin-top:11px;padding:10px;border:1px solid #34475d;border-radius:5px;background:#101a27}
+.motion-presets>span{color:#8290a4;font:8px 'DM Mono',monospace;letter-spacing:.08em}
+.motion-presets>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.motion-presets button{min-height:36px;border:1px solid #40556e;border-radius:4px;background:#17283a;color:#cfe1f4;font:9px 'DM Mono',monospace}
+.motion-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
+@media(max-width:680px){.motion-presets button{min-height:42px;font-size:10px}}
