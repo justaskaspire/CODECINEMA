@@ -67,3 +67,14 @@ npm run build
 - Audio is optional and imported from a local file; supported audio formats depend on the browser's AudioContext decoder.
 - Export is rendered locally and uses an in-memory output buffer. For large projects, lower bitrate, resolution or duration to avoid memory pressure on mobile devices.
 - Three.js is bundled for real WebGL 3D rendering. WebGL support and performance depend on the browser and device. The 3D renderer uses reduced internal resolution in medium/low quality modes and disables expensive antialiasing/shadows by default. FFmpeg and WebGPU are not bundled in this mobile-first build. They remain optional future modules rather than loading large runtimes on every launch.
+
+## 3D Pro engine (v0.21)
+The 3D renderer also supports:
+- GLB/ glTF model loading with `{ id, type: "model", url, position, rotation, scale }`. Use a CORS-enabled URL; local file picking is not part of this API yet.
+- Directional-light shadow maps with `shadows: true`, `castShadow: true` on a directional light, and `castShadow` / `receiveShadow` on objects. Low quality disables shadow maps to protect mobile performance.
+- Deterministic animated 3D point fields through `particles: [{ id, count, color, size, opacity, spread, speed, seed, position }]`.
+- Equirectangular environment images through `environment: "https://…"` for scene backgrounds and PBR reflections. The host must allow cross-origin access.
+- Depth of field through `depthOfField: { focus, aperture, maxBlur }`.
+- Script-driven camera and object keyframes: interpolate values using the existing `api.lerp` / `api.cubicBezier` helpers or a small timeline function. Camera position, look-at and FOV can be changed on every frame.
+
+See [examples/3d-pro-studio.js](examples/3d-pro-studio.js) for a complete test scene. Replace optional model and environment URLs with your own CORS-enabled assets. On mobile, begin at 720p, medium quality and a few hundred particles; shadows, imported models and depth of field increase GPU and memory use.
