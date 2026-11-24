@@ -178,3 +178,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Change interpolation independently for every visual keyframe: Linear, Smooth, Ease In, Ease Out or Hold.
 - Remove individual keyframes without deleting the entire animation track.
 - Easing choices are saved with the existing project keyframe data and are applied consistently in preview and export.
+
+
+## Frame Capture & Mobile Polish (v0.35)
+- Save the exact current preview frame as a full-resolution PNG.
+- The filename includes the project name and playhead time.
+- Frame capture uses the local preview canvas and does not require cloud rendering or external services.
