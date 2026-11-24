@@ -191,3 +191,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - New shapes support existing position, scale, rotation, opacity, color, ordering, duplication and motion keyframes.
 - Rounded corners and line caps are drawn procedurally on Canvas 2D for crisp output at each export resolution.
 - Older projects remain compatible; the additional layer types are only present when added by the user.
+
+
+## Direct Keyframe Value Editor (v0.37)
+- Edit each keyframe's exact timeline timestamp and X/Y/Z values directly.
+- Keep independent per-keyframe easing controls and individual keyframe deletion.
+- Time edits are clamped to the project duration and keyframes remain sorted chronologically.
+- Values and easing are saved in project data and drive both preview and export.
