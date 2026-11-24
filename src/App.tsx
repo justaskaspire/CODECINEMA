@@ -748,7 +748,7 @@ export default function App() {
     const id = name.toLowerCase().replace(/[^a-z0-9_-]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
     const is3d = newLayerKind.endsWith("3d");
     const layer: SceneLayer = { id, name, kind: newLayerKind, visible: true, color: newLayerColor, x: is3d ? 0 : .5, y: is3d ? 0 : .5, z: 0, scaleX: newLayerKind === "text2d" ? .055 : newLayerKind === "circle2d" ? .07 : is3d ? 1 : .28, scaleY: is3d ? 1 : .12, scaleZ: 1, text: newLayerText };
-    setSceneLayers(items => [...items, layer]); setSelectedLayerId(id); setError(""); setStatus("LAYER ADDED");
+    setSceneLayers(items => [layer, ...items]); setSelectedLayerId(id); setError(""); setStatus("LAYER ADDED");
     requestAnimationFrame(() => drawFrame(elapsedRef.current));
   };
   const updateSceneLayer = (id: string, patch: Partial<SceneLayer>) => setSceneLayers(items => items.map(layer => layer.id === id ? { ...layer, ...patch } : layer));
