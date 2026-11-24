@@ -157,6 +157,35 @@ api.camera(ctx, shake.x, shake.y, 1 + Math.sin(t*0.4)*0.025, 0, () => {
 api.colorWash(ctx,"#0b1d3a",0.12);
 api.vignette(ctx,0.72);
 api.grain(ctx,t,0.07,180);`,
+  "Compositing & Light Lab": `// COMPOSITING & LIGHT LAB — blend modes, masks, blur, ripples, lightning and lens flares
+const cx=w/2, cy=h/2, unit=Math.min(w,h);
+ctx.fillStyle="#050812";ctx.fillRect(0,0,w,h);
+const pulse=.5+.5*Math.sin(t*1.7);
+const orbX=cx+Math.sin(t*.55)*unit*.12, orbY=cy+Math.cos(t*.7)*unit*.09;
+api.blend(ctx,"screen",()=>{
+  api.glow(ctx,orbX,orbY,unit*.34,"#3478ff",.72);
+  api.glow(ctx,cx,cy,unit*.19,"#a855f7",.32);
+});
+api.clipCircle(ctx,orbX,orbY,unit*.13,()=>{
+  const g=ctx.createLinearGradient(orbX-unit*.12,orbY-unit*.12,orbX+unit*.13,orbY+unit*.13);
+  g.addColorStop(0,"#dbeafe");g.addColorStop(.35,"#4f9fff");g.addColorStop(1,"#101b43");
+  ctx.fillStyle=g;ctx.fillRect(orbX-unit*.14,orbY-unit*.14,unit*.28,unit*.28);
+  ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=2;
+  for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(orbX,orbY,unit*(.035+i*.014),0,Math.PI*2);ctx.stroke();}
+});
+api.ripple(ctx,orbX,orbY,t,{color:"#7dd3fc",speed:unit*.18,rings:5,maxRadius:unit*.36,width:2,opacity:.65});
+api.lightning(ctx,orbX-unit*.4,orbY-unit*.5,orbX+unit*.3,orbY+unit*.35,t,{color:"#b9eaff",width:2,segments:15,seed:7});
+api.lensFlare(ctx,orbX-unit*.18,orbY-unit*.22,.65+pulse*.5,"#c8edff");
+api.blur(ctx,1.5,()=>{
+  ctx.strokeStyle="rgba(167,139,250,.22)";ctx.lineWidth=unit*.003;
+  for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(cx,cy,unit*(.18+i*.055),0,Math.PI*2);ctx.stroke();}
+});
+ctx.textAlign="center";ctx.textBaseline="middle";
+ctx.fillStyle="#f8fafc";ctx.font="800 "+(unit*.055)+"px Arial";
+ctx.fillText("LIGHT / COMPOSITE",cx,h*.82);
+ctx.fillStyle="#9db5d7";ctx.font="500 "+(unit*.023)+"px Arial";
+ctx.fillText("BLEND  •  MASK  •  LENS  •  ENERGY",cx,h*.88);
+api.vignette(ctx,.68);api.grain(ctx,t,.035,100);`,
   "Motion graphics lab": `// MOTION GRAPHICS LAB — spring physics, path animation, stagger and counters
 ctx.fillStyle = "#070a12"; ctx.fillRect(0,0,w,h);
 const unit=Math.min(w,h), cx=w/2, cy=h/2;
@@ -395,6 +424,65 @@ const api = {
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 12) => {
     const r = Math.max(0, Math.min(radius, width / 2, height / 2));
     ctx.beginPath(); ctx.roundRect(x, y, width, height, r);
+  },
+  blend: (ctx: CanvasRenderingContext2D, operation: GlobalCompositeOperation, draw: () => void) => {
+    ctx.save();
+    try { ctx.globalCompositeOperation = operation; draw(); } finally { ctx.restore(); }
+  },
+  clipCircle: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, draw: () => void) => {
+    ctx.save();
+    try { ctx.beginPath(); ctx.arc(x, y, Math.max(0, radius), 0, Math.PI * 2); ctx.clip(); draw(); } finally { ctx.restore(); }
+  },
+  blur: (ctx: CanvasRenderingContext2D, amount: number, draw: () => void) => {
+    ctx.save();
+    try {
+      const px = Math.max(0, Math.min(40, Number.isFinite(amount) ? amount : 0));
+      if ("filter" in ctx) ctx.filter = `blur(${px}px)`;
+      draw();
+    } finally { ctx.restore(); }
+  },
+  ripple: (ctx: CanvasRenderingContext2D, x: number, y: number, time: number, options: { color?: string; speed?: number; rings?: number; maxRadius?: number; width?: number; opacity?: number } = {}) => {
+    const speed = Math.max(0.001, options.speed ?? 120), rings = Math.max(1, Math.min(12, Math.floor(options.rings ?? 4)));
+    const maxRadius = Math.max(1, options.maxRadius ?? Math.min(ctx.canvas.width, ctx.canvas.height) * 0.34);
+    ctx.save(); ctx.strokeStyle = options.color ?? "#7dd3fc"; ctx.lineWidth = Math.max(0.5, options.width ?? 2);
+    for (let i=0;i<rings;i++) {
+      const phase = (((time * speed + i * maxRadius / rings) % maxRadius) + maxRadius) % maxRadius;
+      ctx.globalAlpha = Math.max(0, options.opacity ?? 0.55) * (1 - phase / maxRadius);
+      ctx.beginPath(); ctx.arc(x, y, phase, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  },
+  lensFlare: (ctx: CanvasRenderingContext2D, x: number, y: number, intensity = 1, color = "#b9eaff") => {
+    const power = Math.max(0, Math.min(2, intensity)), reach = Math.max(ctx.canvas.width, ctx.canvas.height) * 0.42;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, reach * 0.22);
+    glow.addColorStop(0, color); glow.addColorStop(0.08, color + "aa"); glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 0.42 * power; ctx.fillStyle = glow; ctx.fillRect(x-reach*.22,y-reach*.22,reach*.44,reach*.44);
+    ctx.globalAlpha = 0.22 * power; ctx.fillStyle = color;
+    ctx.fillRect(x-reach, y-1, reach*2, 2); ctx.fillRect(x-1, y-reach*.34, 2, reach*.68);
+    for (let i=1;i<=3;i++) {
+      const px = x + (ctx.canvas.width/2-x) * i * 0.48, py = y + (ctx.canvas.height/2-y) * i * 0.48;
+      ctx.globalAlpha = 0.1 * power; ctx.beginPath(); ctx.arc(px,py,reach*(0.012+i*0.008),0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  },
+  lightning: (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, time: number, options: { color?: string; width?: number; segments?: number; seed?: number; flicker?: number } = {}) => {
+    const count = Math.max(2, Math.min(40, Math.floor(options.segments ?? 12))), seed = options.seed ?? 1;
+    const frame = Math.floor(Math.max(0,time) * 18), rand = (n:number) => { const v=Math.sin((n+seed+frame*31)*127.1+311.7)*43758.5453; return v-Math.floor(v); };
+    const points:Array<{x:number;y:number}> = [{x:x1,y:y1}];
+    for(let i=1;i<count;i++) {
+      const p=i/count, spread=Math.hypot(x2-x1,y2-y1)*0.12;
+      points.push({x:x1+(x2-x1)*p+(rand(i)-.5)*spread,y:y1+(y2-y1)*p+(rand(i+91)-.5)*spread});
+    }
+    points.push({x:x2,y:y2});
+    const color=options.color ?? "#a8eaff", flicker=options.flicker ?? 0.72;
+    ctx.save(); ctx.globalAlpha=0.35+rand(500)*Math.max(0,Math.min(0.65,flicker));
+    ctx.lineCap="round"; ctx.lineJoin="round"; ctx.strokeStyle=color; ctx.shadowColor=color;
+    ctx.shadowBlur=22; ctx.lineWidth=Math.max(1,options.width ?? 3)*3;
+    ctx.beginPath(); points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.shadowBlur=4; ctx.lineWidth=Math.max(0.7,options.width ?? 3); ctx.strokeStyle="#ffffff"; ctx.stroke();
+    ctx.restore();
   }
 };
 
@@ -410,6 +498,12 @@ type CinemaApi = {
   counter: (from: number, to: number, progress: number, decimals?: number) => number;
   pathPoint: (points: Array<{x:number;y:number}>, progress: number, closed?: boolean) => {x:number;y:number;angle:number};
   roundedRect: (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius?: number) => void;
+  blend: (ctx: CanvasRenderingContext2D, operation: GlobalCompositeOperation, draw: () => void) => void;
+  clipCircle: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, draw: () => void) => void;
+  blur: (ctx: CanvasRenderingContext2D, amount: number, draw: () => void) => void;
+  ripple: (ctx: CanvasRenderingContext2D, x: number, y: number, time: number, options?: { color?: string; speed?: number; rings?: number; maxRadius?: number; width?: number; opacity?: number }) => void;
+  lensFlare: (ctx: CanvasRenderingContext2D, x: number, y: number, intensity?: number, color?: string) => void;
+  lightning: (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, time: number, options?: { color?: string; width?: number; segments?: number; seed?: number; flicker?: number }) => void;
   glow: (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color?: string, intensity?: number) => void;
   vignette: (ctx: CanvasRenderingContext2D, strength?: number) => void;
   particles: (ctx: CanvasRenderingContext2D, time: number, count?: number, options?: { color?: string; speed?: number; size?: number; seed?: number; opacity?: number }) => void;
@@ -865,6 +959,12 @@ export default function App() {
           <p><code>api.counter(from,to,p,decimals)</code> — animated numeric values</p>
           <p><code>api.pathPoint(points,p,closed)</code> — smooth Catmull–Rom path position and angle</p>
           <p><code>api.roundedRect(ctx,x,y,w,h,r)</code> — rounded rectangle path</p>
+          <p><code>api.blend(ctx,mode,draw)</code> — isolated Canvas blend/composite mode</p>
+          <p><code>api.clipCircle(ctx,x,y,r,draw)</code> — circular mask for any drawing callback</p>
+          <p><code>api.blur(ctx,px,draw)</code> — scoped blur filter with safe fallback</p>
+          <p><code>api.ripple(ctx,x,y,t,options)</code> — animated expanding ripple rings</p>
+          <p><code>api.lensFlare(ctx,x,y,intensity,color)</code> — cinematic optical flare and streaks</p>
+          <p><code>api.lightning(ctx,x1,y1,x2,y2,t,options)</code> — deterministic animated energy bolt</p>
           <p><code>api.scene(ctx,t,name,start,end,draw,options)</code> — timed scene with fade, slide or zoom transition. The draw callback receives local time, progress and global time.</p>
           <p><code>api.glow(ctx,x,y,radius,color,intensity)</code>, <code>api.vignette(ctx,strength)</code> — light bloom and edge shading</p>
           <p><code>api.particles(ctx,t,count,options)</code>, <code>api.grain(ctx,t,amount,count)</code> — procedural particles and film grain</p>
@@ -921,6 +1021,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.18.0 / MOTION GRAPHICS ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.19.0 / COMPOSITING & LIGHT ENGINE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
