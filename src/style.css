@@ -117,3 +117,30 @@ footer{height:38px}
 .timeline-cue>button:last-child{width:31px;height:31px;border:1px solid #51353c;border-radius:4px;background:#24171d;color:#f1aab2;font-size:17px;cursor:pointer}
 .timeline-footnote{margin-top:11px;color:#64748a;font-size:9px;line-height:1.5}
 @media(max-width:680px){.timeline-panel{margin-top:18px;padding:12px}.timeline-heading{align-items:flex-start}.timeline-heading h2{font-size:17px}.timeline-heading p{max-width:210px}.timeline-add{padding:9px 8px;font-size:8px}.timeline-lane{grid-template-columns:51px minmax(0,1fr);gap:6px}.timeline-lane-name{font-size:8px}.timeline-ruler{margin-left:57px}.timeline-marker{max-width:65%;font-size:7px;padding:5px 5px 5px 10px}.timeline-marker i{left:3px}.timeline-lane-track{height:39px}.timeline-toolbar{font-size:8px}}
+
+
+/* v0.24 — visual 3D keyframe director */
+.keyframe-panel{margin-top:16px;padding:17px;background:#0d141e;border:1px solid #263548;border-radius:8px;min-width:0}
+.keyframe-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.keyframe-heading h2{margin:5px 0 3px;color:#edf3fb;font-size:19px;letter-spacing:-.5px}
+.keyframe-heading p{margin:0;color:#8290a4;font-size:10px;line-height:1.5}
+.keyframe-count{color:#b5ff6d;font:9px 'DM Mono',monospace;white-space:nowrap}
+.keyframe-object{display:flex;flex-direction:column;gap:6px;margin-top:15px;color:#8290a4;font:9px 'DM Mono',monospace}
+.keyframe-object input,.keyframe-controls input,.keyframe-controls select{width:100%;min-width:0;min-height:38px;padding:8px 9px;background:#111b29;border:1px solid #334358;border-radius:4px;color:#e5edf7;font:11px 'DM Mono',monospace;outline:none}
+.keyframe-object input:focus,.keyframe-controls input:focus,.keyframe-controls select:focus{border-color:#b5ff6d}
+.keyframe-controls{display:grid;grid-template-columns:1.5fr repeat(3,minmax(54px,.7fr));gap:8px;margin-top:10px;align-items:end}
+.keyframe-controls label{display:flex;flex-direction:column;gap:6px;color:#8290a4;font:9px 'DM Mono',monospace}
+.keyframe-controls select{font-size:9px}
+.keyframe-add{grid-column:1/-1;min-height:40px}
+.keyframe-track-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.keyframe-track{padding:10px;border:1px solid #29394d;border-radius:5px;background:#101a27}
+.keyframe-track-title{display:flex;align-items:center;gap:9px}
+.keyframe-track-title b{color:#f1f5fb;font:10px 'DM Mono',monospace;overflow-wrap:anywhere}
+.keyframe-track-title span{color:#9cdbff;font:8px 'DM Mono',monospace}
+.keyframe-track-title button{margin-left:auto;width:28px;height:28px;border:1px solid #51353c;border-radius:4px;background:#24171d;color:#f1aab2;font-size:17px}
+.keyframe-points{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.keyframe-points button{display:flex;flex-direction:column;gap:4px;padding:7px 8px;border:1px solid #34475e;border-radius:4px;background:#142235;color:#dce8f6;text-align:left}
+.keyframe-points button b{color:#b5ff6d;font:8px 'DM Mono',monospace}
+.keyframe-points button span{font:8px 'DM Mono',monospace;color:#9eb0c7}
+.keyframe-note{margin-top:12px;color:#74849a;font-size:9px;line-height:1.6}
+@media(max-width:680px){.keyframe-panel{padding:12px}.keyframe-heading h2{font-size:17px}.keyframe-controls{grid-template-columns:1fr 1fr 1fr;gap:7px}.keyframe-controls label:first-child{grid-column:1/-1}.keyframe-controls label{font-size:8px}.keyframe-controls input,.keyframe-controls select{min-height:42px;font-size:11px}.keyframe-add{grid-column:1/-1;min-height:44px;font-size:9px}}
