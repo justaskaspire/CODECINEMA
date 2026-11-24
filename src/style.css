@@ -312,3 +312,10 @@ footer{height:38px}
 .timeline-cue-edit label{display:flex;flex-direction:column;gap:4px;color:#7e8ca0;font:7px 'DM Mono',monospace;min-width:0}
 .timeline-cue-edit input,.timeline-cue-edit select{width:100%;min-width:0;background:#111b29;border:1px solid #334258;color:#dce6f2;padding:7px;font:9px Manrope}
 @media(max-width:680px){.timeline-cue-edit{grid-template-columns:55px minmax(0,1fr) minmax(70px,.8fr) 26px}.timeline-cue-edit label:nth-of-type(3){grid-column:2/4}.timeline-cue-edit input,.timeline-cue-edit select{min-height:36px}}
+
+
+/* v0.47 — editable 2D gradients */
+.gradient-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0;padding:9px;border:1px solid #28384d;border-radius:4px;background:#0c1420}
+.gradient-controls label{display:flex;flex-direction:column;gap:5px;color:#8290a4;font:8px 'DM Mono',monospace;min-width:0}
+.gradient-controls select,.gradient-controls input[type=number]{width:100%;min-width:0;padding:8px;background:#111722;border:1px solid #344052;color:#dce6f2;font:10px Manrope}
+.gradient-controls input[type=color]{width:100%;height:34px;border:1px solid #344052;background:#111722;padding:2px}
