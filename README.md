@@ -205,3 +205,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Import restores those mixer settings and recognizes the 540p render profile.
 - Audio media itself remains a local file and is not embedded in the project; reselect the audio file after opening the project.
 - The existing schema version remains compatible with earlier project files; missing audio settings use the current studio defaults.
+
+
+## 3D Lighting Director (v0.39)
+- Add Ambient, Directional and Point lights without writing code.
+- Edit each light's name, color, intensity and position (where applicable); toggle visibility or delete it.
+- Scene lights merge with script-defined lights by ID, so the visual editor and code can work together.
+- Lights autosave locally and are included in portable `.cinema.json` projects.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderExport, type ExportContainer } from "./mediaExport";
-import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec } from "./threeEngine";
+import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec, type ThreeLightSpec } from "./threeEngine";
 
 const threeSceneRenderer = new ThreeSceneRenderer();
 
@@ -304,6 +304,7 @@ type SceneLayerKind = "text2d" | "rect2d" | "circle2d" | "roundedRect2d" | "tria
 type SceneLayer = { id: string; name: string; kind: SceneLayerKind; visible: boolean; color: string; x: number; y: number; z: number; scaleX: number; scaleY: number; scaleZ: number; rotationX?: number; rotationY?: number; rotationZ?: number; opacity?: number; metalness?: number; roughness?: number; emissive?: string; emissiveIntensity?: number; fontFamily?: string; fontWeight?: number; textAlign?: "left" | "center" | "right"; strokeColor?: string; strokeWidth?: number; shadowColor?: string; shadowBlur?: number; text?: string };
 type LayerMotionPreset = "rise" | "slide" | "pop" | "spin";
 type SceneCamera = { position: [number, number, number]; lookAt: [number, number, number]; fov: number };
+type SceneLight = { id: string; name: string; type: "ambient" | "directional" | "point"; color: string; intensity: number; x: number; y: number; z: number; visible: boolean };
 const defaultSceneCamera: SceneCamera = { position: [0, 0, 8], lookAt: [0, 0, 0], fov: 45 };
 type TrackValue = number | number[];
 type AnimationKeyframe = { time: number; value: TrackValue; ease?: "linear" | "smooth" | "in" | "out" | "hold" };
@@ -330,6 +331,7 @@ const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], default
 let activeVisualTracks: VisualKeyframeTrack[] = [];
 let activeSceneLayers: SceneLayer[] = [];
 let activeSceneCamera: SceneCamera = defaultSceneCamera;
+let activeSceneLights: SceneLight[] = [];
 const drawSceneOverlays = (ctx: CanvasRenderingContext2D, time: number, width: number, height: number) => {
   for (const layer of [...activeSceneLayers].reverse()) {
     if (!layer.visible || !["text2d","rect2d","circle2d","roundedRect2d","triangle2d","line2d"].includes(layer.kind)) continue;
@@ -367,7 +369,9 @@ const api = {
       }
       return animated;
     });
-    threeSceneRenderer.render(ctx,time,width,height,{ ...config, camera: { ...(config.camera ?? {}), position: activeSceneCamera.position, lookAt: activeSceneCamera.lookAt, fov: activeSceneCamera.fov }, objects });
+    const editorLights: ThreeLightSpec[] = activeSceneLights.filter(light => light.visible).map(light => ({ id: light.id, type: light.type, color: light.color, intensity: light.intensity, position: [light.x,light.y,light.z] }));
+    const lights = [...(config.lights ?? []).filter(light => !editorLights.some(editorLight => editorLight.id === light.id)), ...editorLights];
+    threeSceneRenderer.render(ctx,time,width,height,{ ...config, camera: { ...(config.camera ?? {}), position: activeSceneCamera.position, lookAt: activeSceneCamera.lookAt, fov: activeSceneCamera.fov }, objects, lights });
   },
   // Keyframe tracks return a number or vector at any exact timeline time.
   track: (time: number, frames: AnimationKeyframe[], easing: "linear" | "smooth" | "in" | "out" = "smooth") => sampleAnimationTrack(time, frames, easing),
@@ -703,6 +707,8 @@ export default function App() {
   const [sceneLayers, setSceneLayers] = useState<SceneLayer[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-layers") || "[]"); return Array.isArray(saved) ? saved.filter((layer: any) => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","roundedRect2d","triangle2d","line2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map((layer: any) => ({ ...layer, visible: layer.visible !== false, rotationX: Number.isFinite(layer.rotationX ?? 0) ? layer.rotationX ?? 0 : 0, rotationY: Number.isFinite(layer.rotationY ?? 0) ? layer.rotationY ?? 0 : 0, rotationZ: Number.isFinite(layer.rotationZ ?? 0) ? layer.rotationZ ?? 0 : 0, opacity: Number.isFinite(layer.opacity ?? 1) ? Math.max(0,Math.min(1,layer.opacity ?? 1)) : 1, metalness: Number.isFinite(layer.metalness ?? .15) ? Math.max(0,Math.min(1,layer.metalness ?? .15)) : .15, roughness: Number.isFinite(layer.roughness ?? .55) ? Math.max(.04,Math.min(1,layer.roughness ?? .55)) : .55, emissive: typeof layer.emissive === "string" ? layer.emissive : "#000000", emissiveIntensity: Number.isFinite(layer.emissiveIntensity ?? 0) ? Math.max(0,layer.emissiveIntensity ?? 0) : 0 })) : []; } catch { return []; } });
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [sceneCamera, setSceneCamera] = useState<SceneCamera>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-camera") || "null"); if (saved && Array.isArray(saved.position) && saved.position.length === 3 && saved.position.every(Number.isFinite) && Array.isArray(saved.lookAt) && saved.lookAt.length === 3 && saved.lookAt.every(Number.isFinite) && Number.isFinite(saved.fov)) return { position: saved.position as [number,number,number], lookAt: saved.lookAt as [number,number,number], fov: Math.max(20,Math.min(100,saved.fov)) }; } catch { /* use defaults */ } return defaultSceneCamera; });
+  const [sceneLights, setSceneLights] = useState<SceneLight[]>(() => { try { const saved = JSON.parse(localStorage.getItem("codec-2026-scene-lights") || "[]"); return Array.isArray(saved) ? saved.filter((light: any) => light && typeof light.id === "string" && typeof light.name === "string" && ["ambient","directional","point"].includes(light.type) && typeof light.color === "string" && Number.isFinite(light.intensity) && [light.x,light.y,light.z].every(Number.isFinite)).map((light: any) => ({ ...light, intensity: Math.max(0,Math.min(100,light.intensity)), visible: light.visible !== false })) : []; } catch { return []; } });
+  const [newLightType, setNewLightType] = useState<SceneLight["type"]>("directional");
   const [newLayerKind, setNewLayerKind] = useState<SceneLayerKind>("sphere3d");
   const [newLayerName, setNewLayerName] = useState("New Layer");
   const [newLayerColor, setNewLayerColor] = useState("#65b8ff");
@@ -710,6 +716,7 @@ export default function App() {
   activeVisualTracks = visualTracks;
   activeSceneLayers = sceneLayers;
   activeSceneCamera = sceneCamera;
+  activeSceneLights = sceneLights;
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<string[]>([code]);
   const historyIndexRef = useRef(0);
@@ -758,7 +765,7 @@ export default function App() {
     window.alert("To install CODECINEMA:\\n1. Open this page in Chrome.\\n2. Tap the ⋮ menu.\\n3. Choose Install app (or Add to Home screen).\\n4. Confirm Install.");
   };
 
-  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); localStorage.setItem("codec-2026-scene-camera", JSON.stringify(sceneCamera)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers, sceneCamera]);
+  useEffect(() => { codeRef.current = code; try { localStorage.setItem("codec-2026-script", code); localStorage.setItem("codec-2026-project-name", projectName); localStorage.setItem("codec-2026-timeline", JSON.stringify(timelineMarkers)); localStorage.setItem("codec-2026-visual-tracks", JSON.stringify(visualTracks)); localStorage.setItem("codec-2026-scene-layers", JSON.stringify(sceneLayers)); localStorage.setItem("codec-2026-scene-camera", JSON.stringify(sceneCamera)); localStorage.setItem("codec-2026-scene-lights", JSON.stringify(sceneLights)); } catch { /* storage may be unavailable */ } }, [code, projectName, timelineMarkers, visualTracks, sceneLayers, sceneCamera, sceneLights]);
   const addTimelineMarker = () => { const count = timelineMarkers.filter(item => item.track === timelineTrack).length + 1; const label = (timelineTrack === "SCENE" ? "Scene " : timelineTrack === "VISUAL" ? "Visual " : "Audio ") + count; const marker: TimelineMarker = { id: String(Date.now()) + Math.random().toString(36).slice(2,7), time: Math.max(0, Math.min(duration, elapsedRef.current)), track: timelineTrack, label }; setTimelineMarkers(items => [...items, marker].sort((x,y) => x.time-y.time)); setStatus("TIMELINE CUE ADDED"); };
   const scrubTo = (time: number) => { const value = Math.max(0, Math.min(duration, time)); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("TIMELINE SCRUBBING"); };
   const applyCompositionPreset = (preset: "title" | "lower-third" | "end-card") => {
@@ -823,6 +830,13 @@ export default function App() {
     const next = [...camera[axis]] as [number,number,number]; next[index] = value;
     return { ...camera, [axis]: next };
   });
+  const addSceneLight = () => {
+    const id = "light-" + newLightType + "-" + Date.now().toString(36);
+    const light: SceneLight = { id, name: newLightType.charAt(0).toUpperCase() + newLightType.slice(1) + " Light " + (sceneLights.length + 1), type: newLightType, color: "#ffffff", intensity: newLightType === "ambient" ? .8 : newLightType === "point" ? 20 : 1.5, x: 3, y: 4, z: 5, visible: true };
+    setSceneLights(items => [light, ...items]); setStatus("3D LIGHT ADDED");
+  };
+  const updateSceneLight = (id: string, patch: Partial<SceneLight>) => setSceneLights(items => items.map(light => light.id === id ? { ...light, ...patch } : light));
+
   const addVisualKeyframe = () => {
     const objectId = objectIdInput.trim();
     if (!objectId) { setError("Enter a 3D object ID or a scene-layer ID."); return; }
@@ -1126,7 +1140,7 @@ export default function App() {
       name: projectName,
       code,
       settings: { duration, format, quality, fps, container, bitrate, audioMix: { trimStart: audioTrimStart, trimEnd: audioTrimEnd, volume: audioVolume, fadeIn: audioFadeIn, fadeOut: audioFadeOut } },
-      timeline: { markers: timelineMarkers, visualTracks, sceneLayers, sceneCamera }
+      timeline: { markers: timelineMarkers, visualTracks, sceneLayers, sceneCamera, sceneLights }
     };
     downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }), safeFileName(projectName) + ".cinema.json");
     setStatus("PROJECT SAVED");
@@ -1138,7 +1152,7 @@ export default function App() {
       const project = JSON.parse(await file.text()) as {
         app?: string; schemaVersion?: number; name?: string; code?: string;
         settings?: { duration?: number; format?: string; quality?: string; fps?: number; container?: ExportContainer; bitrate?: number; audioMix?: { trimStart?: number; trimEnd?: number; volume?: number; fadeIn?: number; fadeOut?: number } };
-        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[]; sceneCamera?: SceneCamera };
+        timeline?: { markers?: TimelineMarker[]; visualTracks?: VisualKeyframeTrack[]; sceneLayers?: SceneLayer[]; sceneCamera?: SceneCamera; sceneLights?: SceneLight[] };
       };
       if (project.app !== "CODECINEMA" || project.schemaVersion !== 1 || typeof project.code !== "string") {
         throw new Error("This is not a supported CODECINEMA project file.");
@@ -1162,6 +1176,7 @@ export default function App() {
       setVisualTracks(Array.isArray(project.timeline?.visualTracks) ? project.timeline.visualTracks.filter(track => track && typeof track.id === "string" && typeof track.objectId === "string" && ["position","rotation","scale"].includes(track.property) && Array.isArray(track.frames)).map(track => ({ ...track, frames: track.frames.filter(frame => frame && Number.isFinite(frame.time) && Array.isArray(frame.value) && frame.value.length === 3 && frame.value.every(Number.isFinite)).map(frame => ({ ...frame, time: Math.max(0, Math.min(settings.duration || 60, frame.time)), value: (frame.value as number[]).map(Number) })) })) : []);
       setSceneLayers(Array.isArray(project.timeline?.sceneLayers) ? project.timeline.sceneLayers.filter(layer => layer && typeof layer.id === "string" && typeof layer.name === "string" && ["text2d","rect2d","circle2d","roundedRect2d","triangle2d","line2d","box3d","sphere3d","cone3d","torus3d"].includes(layer.kind) && [layer.x,layer.y,layer.z,layer.scaleX,layer.scaleY,layer.scaleZ].every(Number.isFinite) && typeof layer.color === "string").map(layer => ({ ...layer, visible: layer.visible !== false, rotationX: Number.isFinite(layer.rotationX ?? 0) ? layer.rotationX ?? 0 : 0, rotationY: Number.isFinite(layer.rotationY ?? 0) ? layer.rotationY ?? 0 : 0, rotationZ: Number.isFinite(layer.rotationZ ?? 0) ? layer.rotationZ ?? 0 : 0, opacity: Number.isFinite(layer.opacity ?? 1) ? Math.max(0,Math.min(1,layer.opacity ?? 1)) : 1, metalness: Number.isFinite(layer.metalness ?? .15) ? Math.max(0,Math.min(1,layer.metalness ?? .15)) : .15, roughness: Number.isFinite(layer.roughness ?? .55) ? Math.max(.04,Math.min(1,layer.roughness ?? .55)) : .55, emissive: typeof layer.emissive === "string" ? layer.emissive : "#000000", emissiveIntensity: Number.isFinite(layer.emissiveIntensity ?? 0) ? Math.max(0,layer.emissiveIntensity ?? 0) : 0 })) : []);
       setSceneCamera(project.timeline?.sceneCamera && Array.isArray(project.timeline.sceneCamera.position) && project.timeline.sceneCamera.position.length === 3 && project.timeline.sceneCamera.position.every(Number.isFinite) && Array.isArray(project.timeline.sceneCamera.lookAt) && project.timeline.sceneCamera.lookAt.length === 3 && project.timeline.sceneCamera.lookAt.every(Number.isFinite) && Number.isFinite(project.timeline.sceneCamera.fov) ? { position: project.timeline.sceneCamera.position, lookAt: project.timeline.sceneCamera.lookAt, fov: Math.max(20,Math.min(100,project.timeline.sceneCamera.fov)) } : defaultSceneCamera);
+      setSceneLights(Array.isArray(project.timeline?.sceneLights) ? project.timeline.sceneLights.filter(light => light && typeof light.id === "string" && typeof light.name === "string" && ["ambient","directional","point"].includes(light.type) && typeof light.color === "string" && Number.isFinite(light.intensity) && [light.x,light.y,light.z].every(Number.isFinite)).map(light => ({ ...light, intensity: Math.max(0,Math.min(100,light.intensity)), visible: light.visible !== false })) : []);
       setSelectedLayerId("");
       setExample("");
       setError("");
@@ -1312,6 +1327,7 @@ export default function App() {
         <section className="layer-panel" aria-label="2D and 3D object layer editor">
           <div className="keyframe-heading"><div><span className="section-kicker">06 / SCENE COMPOSER</span><h2>Scene Composer</h2><p>Build a scene, organize layers and frame the 3D camera.</p></div><span className="keyframe-count">{sceneLayers.length} LAYERS</span></div>
           <div className="scene-camera-editor"><div className="layer-properties-title">3D CAMERA · GLOBAL OVERRIDE</div><div className="camera-control-grid">{(["position","lookAt"] as const).map(axis => <div className="camera-axis-group" key={axis}><b>{axis === "position" ? "CAMERA POSITION" : "LOOK AT TARGET"}</b>{(["X","Y","Z"] as const).map((label,index)=><label key={label}>{label}<input type="number" step="0.1" value={sceneCamera[axis][index]} onChange={e=>updateSceneCamera(axis,index,Number(e.target.value))} disabled={exporting}/></label>)}</div>)}<label className="camera-fov">FIELD OF VIEW<input type="number" min="20" max="100" step="1" value={sceneCamera.fov} onChange={e=>setSceneCamera(camera=>({...camera,fov:Math.max(20,Math.min(100,Number(e.target.value)||45))}))} disabled={exporting}/></label><button type="button" className="button secondary camera-reset" onClick={()=>setSceneCamera(defaultSceneCamera)} disabled={exporting}>RESET CAMERA</button></div><div className="keyframe-note">These camera values override script camera settings whenever api.render3D is called. They are saved with the project.</div></div>
+          <section className="scene-lighting-editor"><div className="layer-properties-title">3D LIGHTING DIRECTOR · {sceneLights.length} LIGHTS</div><div className="light-add-row"><label>LIGHT TYPE<select value={newLightType} onChange={e=>setNewLightType(e.target.value as SceneLight["type"])} disabled={exporting}><option value="ambient">Ambient</option><option value="directional">Directional</option><option value="point">Point</option></select></label><button type="button" className="button primary" onClick={addSceneLight} disabled={exporting}>＋ ADD LIGHT</button></div>{sceneLights.length===0 && <div className="keyframe-note">Add a light to illuminate your editable 3D objects. Script-defined lights continue to work normally.</div>}{sceneLights.map(light=><div className="scene-light-row" key={light.id}><div className="scene-light-title"><b>{light.name}</b><span>{light.type.toUpperCase()}</span><button type="button" onClick={()=>updateSceneLight(light.id,{visible:!light.visible})} disabled={exporting}>{light.visible?"◉":"○"}</button><button type="button" onClick={()=>setSceneLights(items=>items.filter(item=>item.id!==light.id))} disabled={exporting}>×</button></div><div className="scene-light-controls"><label>NAME<input value={light.name} maxLength={32} onChange={e=>updateSceneLight(light.id,{name:e.target.value})} disabled={exporting}/></label><label>COLOR<input type="color" value={light.color} onChange={e=>updateSceneLight(light.id,{color:e.target.value})} disabled={exporting}/></label><label>INTENSITY<input type="number" min="0" max="100" step="0.1" value={light.intensity} onChange={e=>updateSceneLight(light.id,{intensity:Math.max(0,Math.min(100,Number(e.target.value)||0))})} disabled={exporting}/></label>{light.type!=="ambient" && (["x","y","z"] as const).map(axis=><label key={axis}>{axis.toUpperCase()}<input type="number" step="0.1" value={light[axis]} onChange={e=>updateSceneLight(light.id,{[axis]:Number(e.target.value)||0})} disabled={exporting}/></label>)}</div></div>)}</section>
           <div className="layer-create">
             <label>LAYER TYPE<select value={newLayerKind} disabled={exporting} onChange={e => setNewLayerKind(e.target.value as SceneLayerKind)}><optgroup label="2D OVERLAY"><option value="text2d">Text</option><option value="rect2d">Rectangle</option><option value="circle2d">Circle</option><option value="roundedRect2d">Rounded rectangle</option><option value="triangle2d">Triangle</option><option value="line2d">Line</option></optgroup><optgroup label="3D OBJECT"><option value="box3d">3D Box</option><option value="sphere3d">3D Sphere</option><option value="cone3d">3D Cone</option><option value="torus3d">3D Torus</option></optgroup></select></label>
             <label>NAME<input value={newLayerName} onChange={e => setNewLayerName(e.target.value)} maxLength={32} disabled={exporting} /></label>
@@ -1355,6 +1371,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.38.0 / PROJECT PORTABILITY</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.39.0 / 3D LIGHTING DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }

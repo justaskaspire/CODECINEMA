@@ -247,3 +247,18 @@ footer{height:38px}
 .keyframe-point-top label,.keyframe-point-values label{display:flex;flex-direction:column;gap:4px;color:#7e8ca0;font:7px 'DM Mono',monospace;min-width:0}
 .keyframe-point-top input,.keyframe-point-values input{width:100%;min-width:0;padding:6px;background:#111b29;border:1px solid #334258;color:#dce6f2;font:10px 'DM Mono',monospace}
 @media(max-width:680px){.keyframe-point-top{grid-template-columns:minmax(64px,1fr) minmax(70px,.7fr) minmax(82px,.9fr) 25px;gap:4px}.keyframe-point-values input{padding:8px 5px}}
+
+
+/* v0.39 — touch-friendly 3D light editor */
+.scene-lighting-editor{margin:12px 0;padding:12px;border:1px solid #344052;border-radius:5px;background:#0d1520;display:flex;flex-direction:column;gap:10px}
+.light-add-row{display:flex;align-items:end;gap:9px;flex-wrap:wrap}
+.light-add-row label,.scene-light-controls label{display:flex;flex-direction:column;gap:5px;color:#8290a4;font:8px 'DM Mono',monospace;min-width:0}
+.light-add-row select,.scene-light-controls input:not([type=color]){background:#111722;border:1px solid #344052;color:#dce6f2;padding:8px;font:10px Manrope;min-width:0}
+.scene-light-row{padding:10px;border:1px solid #28384d;border-radius:4px;background:#101a27}
+.scene-light-title{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.scene-light-title b{font:10px 'DM Mono',monospace;color:#e5edf7;overflow-wrap:anywhere;flex:1}
+.scene-light-title span{font:8px 'DM Mono',monospace;color:#b5ff6d}
+.scene-light-title button{width:28px;height:28px;border:1px solid #40556e;background:#17283a;color:#cbd8e8;border-radius:3px}
+.scene-light-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.scene-light-controls input[type=color]{width:100%;height:34px;border:1px solid #344052;background:#111722;padding:2px}
+@media(max-width:680px){.scene-light-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.light-add-row select{min-height:40px}.scene-light-title button{min-width:36px;min-height:36px}}
