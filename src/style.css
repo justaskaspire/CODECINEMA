@@ -234,3 +234,7 @@ footer{height:38px}
 .frame-save-button{border:1px solid #344052;background:#111722;color:#cbd3df;padding:8px 10px;font:9px 'DM Mono',monospace;white-space:nowrap}
 .frame-save-button:active{border-color:#b5ff6d;color:#b5ff6d}
 @media(max-width:680px){.frame-save-button{padding:8px 7px;font-size:8px}}
+
+
+/* v0.36 — shape studio inspector labels */
+.layer-row small{overflow-wrap:anywhere}
