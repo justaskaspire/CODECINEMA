@@ -225,3 +225,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Available controls adapt to the selected 3D geometry type.
 - Geometry parameters are stored with scene layers and used by the existing Three.js renderer in preview and export.
 - Segment detail is bounded to 6–64 to keep mobile rendering practical.
+
+
+## Material Preset Director (v0.42)
+- Apply Metal, Glass, Matte and Glow material presets to any 3D scene layer.
+- Presets adjust metalness, roughness, opacity and emissive properties.
+- Presets remain fully editable through the existing material controls and are saved with the project.
