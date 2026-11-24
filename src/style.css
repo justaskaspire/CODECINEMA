@@ -169,3 +169,18 @@ footer{height:38px}
 .layer-property-grid label{display:flex;flex-direction:column;gap:5px;color:#8290a4;font:8px 'DM Mono',monospace}
 .layer-text-edit{margin-top:10px}
 @media(max-width:680px){.layer-panel{padding:12px}.layer-create{grid-template-columns:1fr 1fr 60px;gap:7px}.layer-create label:first-child,.layer-create label:nth-child(2){grid-column:span 1}.layer-create input,.layer-create select{min-height:42px;font-size:11px}.layer-create>.button{min-height:44px}.layer-property-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layer-select b{font-size:9px}.layer-select small{font-size:7px}}
+
+/* v0.26 — visual scene composer */
+.scene-camera-editor{margin-top:14px;padding:12px;border:1px solid #34475d;border-radius:6px;background:#101a27}
+.camera-control-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.camera-axis-group{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0}
+.camera-axis-group>b{grid-column:1/-1;color:#91a2b8;font:8px 'DM Mono',monospace}
+.camera-axis-group label,.camera-fov{display:flex;flex-direction:column;gap:5px;color:#8290a4;font:8px 'DM Mono',monospace}
+.camera-axis-group input,.camera-fov input{width:100%;min-width:0;min-height:38px;padding:7px;background:#111b29;border:1px solid #334358;border-radius:4px;color:#e5edf7;font:11px 'DM Mono',monospace}
+.camera-fov{grid-column:1/-1}
+.camera-reset{grid-column:1/-1;min-height:38px}
+.layer-order,.layer-duplicate{width:30px;height:32px;flex:0 0 auto;border:1px solid #34465c;border-radius:4px;background:#142235;color:#c5d5e8;font-size:13px}
+.layer-order:disabled{opacity:.3}
+.layer-duplicate{color:#b5ff6d}
+.layer-keyframe-load{width:100%;margin-top:10px;min-height:38px}
+@media(max-width:680px){.camera-control-grid{grid-template-columns:1fr}.camera-axis-group input,.camera-fov input{min-height:42px;font-size:12px}.camera-reset{min-height:42px}.layer-row{gap:3px;padding:4px}.layer-order,.layer-duplicate,.layer-visibility,.layer-delete{width:29px;height:32px}}

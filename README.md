@@ -114,3 +114,11 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Layer definitions autosave locally and are included in portable `.cinema.json` project files.
 - 3D layers can be animated with the v0.24 keyframe director by using the generated layer ID as the object ID.
 - The layer editor manages objects created inside the studio; it does not yet extract arbitrary objects drawn directly by user code into editable layers.
+
+
+## Visual Scene Composer (v0.26)
+- Global 3D camera controls for camera position, look-at target and field of view. These controls override camera values supplied by scripts whenever `api.render3D` is called.
+- Reorder layers with up/down controls; 2D overlays draw in list order, with later rows composited above earlier rows.
+- Duplicate existing 2D or 3D layers while preserving their editable properties and creating a unique object ID.
+- Send a selected 3D layer directly to the keyframe director with its current position prefilled.
+- Camera settings and layer hierarchy autosave locally and are included in portable `.cinema.json` project files.
