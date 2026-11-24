@@ -122,3 +122,11 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Duplicate existing 2D or 3D layers while preserving their editable properties and creating a unique object ID.
 - Send a selected 3D layer directly to the keyframe director with its current position prefilled.
 - Camera settings and layer hierarchy autosave locally and are included in portable `.cinema.json` project files.
+
+
+## Visual Keyframe Director (v0.27)
+- Animate 2D scene-layer position, size and rotation as well as 3D object position, rotation and scale.
+- Load any selected scene layer directly into the keyframe editor with its current position prefilled.
+- 2D position keyframes use normalized canvas coordinates (0–1); 2D scale keyframes use relative width and height; 2D rotation uses the Z value in radians.
+- The same timestamp-based keyframe tracks drive preview and frame-by-frame export, and remain included in local autosave and portable `.cinema.json` projects.
+- Existing script-defined 3D object IDs continue to work with the visual keyframe editor.

@@ -329,14 +329,24 @@ const sampleAnimationTrack = (time: number, frames: AnimationKeyframe[], default
 let activeVisualTracks: VisualKeyframeTrack[] = [];
 let activeSceneLayers: SceneLayer[] = [];
 let activeSceneCamera: SceneCamera = defaultSceneCamera;
-const drawSceneOverlays = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+const drawSceneOverlays = (ctx: CanvasRenderingContext2D, time: number, width: number, height: number) => {
   for (const layer of [...activeSceneLayers].reverse()) {
     if (!layer.visible || !["text2d","rect2d","circle2d"].includes(layer.kind)) continue;
-    ctx.save(); ctx.fillStyle = layer.color; ctx.globalAlpha = 1;
-    const x = layer.x * width, y = layer.y * height;
-    if (layer.kind === "text2d") { ctx.font = `800 ${Math.max(10, layer.scaleX * Math.min(width,height))}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(layer.text || layer.name, x, y, width * .9); }
-    else if (layer.kind === "rect2d") { const w = Math.max(2, layer.scaleX * width), h = Math.max(2, layer.scaleY * height); ctx.fillRect(x-w/2,y-h/2,w,h); }
-    else { ctx.beginPath(); ctx.arc(x,y,Math.max(2,layer.scaleX*Math.min(width,height)),0,Math.PI*2); ctx.fill(); }
+    const positionTrack = activeVisualTracks.find(track => track.objectId === layer.id && track.property === "position");
+    const scaleTrack = activeVisualTracks.find(track => track.objectId === layer.id && track.property === "scale");
+    const rotationTrack = activeVisualTracks.find(track => track.objectId === layer.id && track.property === "rotation");
+    const position = positionTrack ? sampleAnimationTrack(time, positionTrack.frames) : [layer.x, layer.y, 0];
+    const scale = scaleTrack ? sampleAnimationTrack(time, scaleTrack.frames) : [layer.scaleX, layer.scaleY, 1];
+    const rotation = rotationTrack ? sampleAnimationTrack(time, rotationTrack.frames) : [0, 0, 0];
+    const px = Array.isArray(position) ? position : [layer.x, layer.y, 0];
+    const sc = Array.isArray(scale) ? scale : [layer.scaleX, layer.scaleY, 1];
+    const rot = Array.isArray(rotation) ? rotation : [0, 0, 0];
+    const x = (px[0] ?? layer.x) * width, y = (px[1] ?? layer.y) * height;
+    const sx = Math.max(0.001, sc[0] ?? layer.scaleX), sy = Math.max(0.001, sc[1] ?? layer.scaleY);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot[2] ?? 0); ctx.fillStyle = layer.color; ctx.globalAlpha = 1;
+    if (layer.kind === "text2d") { ctx.font = `800 ${Math.max(10, sx * Math.min(width,height))}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(layer.text || layer.name, 0, 0, width * .9); }
+    else if (layer.kind === "rect2d") { const w = Math.max(2, sx * width), h = Math.max(2, sy * height); ctx.fillRect(-w/2,-h/2,w,h); }
+    else { ctx.beginPath(); ctx.arc(0,0,Math.max(2,sx*Math.min(width,height)),0,Math.PI*2); ctx.fill(); }
     ctx.restore();
   }
 };
@@ -769,7 +779,7 @@ export default function App() {
   });
   const addVisualKeyframe = () => {
     const objectId = objectIdInput.trim();
-    if (!objectId) { setError("Enter the exact 3D object ID from your api.render3D script."); return; }
+    if (!objectId) { setError("Enter a 3D object ID or a scene-layer ID."); return; }
     const time = Math.max(0, Math.min(duration, elapsedRef.current));
     setVisualTracks(items => {
       const existing = items.find(track => track.objectId === objectId && track.property === propertyInput);
@@ -777,7 +787,7 @@ export default function App() {
       if (!existing) return [...items, { id: objectId + "-" + propertyInput + "-" + Date.now(), objectId, property: propertyInput, frames: [frame] }];
       return items.map(track => track.id !== existing.id ? track : { ...track, frames: [...track.frames.filter(item => Math.abs(item.time - time) > 0.001), frame].sort((a,b) => a.time-b.time) });
     });
-    setError(""); setStatus("3D KEYFRAME ADDED"); drawFrame(time);
+    setError(""); setStatus("VISUAL KEYFRAME ADDED"); drawFrame(time);
   };
 
   const changeCode = (next: string) => {
@@ -856,7 +866,7 @@ export default function App() {
     try {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       renderRef.current(ctx, time, canvas.width, canvas.height, api);
-      drawSceneOverlays(ctx, canvas.width, canvas.height);
+      drawSceneOverlays(ctx, time, canvas.width, canvas.height);
       setError("");
     } catch (e) {
       setError(scriptError(e));
@@ -972,7 +982,7 @@ export default function App() {
           if (!ctx || !renderRef.current) throw new Error("The preview canvas is unavailable.");
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           renderRef.current(ctx, time, canvas.width, canvas.height, api);
-          drawSceneOverlays(ctx, canvas.width, canvas.height);
+          drawSceneOverlays(ctx, time, canvas.width, canvas.height);
           elapsedRef.current = time;
           setElapsed(time);
         },
@@ -1191,7 +1201,7 @@ export default function App() {
           <div className="timeline-ruler">{Array.from({length: 7}, (_,i) => { const time = duration * i / 6; return <button key={i} type="button" style={{left: (time/duration*100) + "%"}} onClick={() => scrubTo(time)}>{time.toFixed(0)}s</button>; })}</div>
           <div className="timeline-lanes">{(["SCENE","VISUAL","AUDIO"] as TimelineTrack[]).map(track => <div className="timeline-lane" key={track}><span className="timeline-lane-name">{track}</span><div className="timeline-lane-track" onClick={e => { const rect=e.currentTarget.getBoundingClientRect(); scrubTo(((e.clientX-rect.left)/rect.width)*duration); }}>{timelineMarkers.filter(marker => marker.track === track).map(marker => <button key={marker.id} type="button" className={"timeline-marker marker-" + track.toLowerCase()} style={{left: (marker.time/duration*100) + "%"}} title={marker.label + " · " + marker.time.toFixed(2) + "s"} onClick={e => { e.stopPropagation(); scrubTo(marker.time); }}><i />{marker.label}</button>)}<span className="timeline-playhead" style={{left: (elapsed/duration*100) + "%"}} /></div></div>)}</div>
           {timelineMarkers.length > 0 && <div className="timeline-cue-list">{[...timelineMarkers].sort((x,y)=>x.time-y.time).map(marker => <div className="timeline-cue" key={marker.id}><button type="button" onClick={() => scrubTo(marker.time)}><b>{marker.track}</b><span>{marker.label}</span><em>{marker.time.toFixed(2)}s</em></button><button type="button" aria-label={"Delete " + marker.label} onClick={() => setTimelineMarkers(items => items.filter(item => item.id !== marker.id))}>×</button></div>)}</div>}
-          <div className="timeline-footnote">Scene, visual and audio cues are editorial markers. The 3D Animation Director below creates real transform keyframes used in preview and export.</div>
+          <div className="timeline-footnote">Scene, visual and audio cues are editorial markers. Visual Keyframes animate 2D layers and 3D objects in preview and export.</div>
         </section>
         <section className="layer-panel" aria-label="2D and 3D object layer editor">
           <div className="keyframe-heading"><div><span className="section-kicker">06 / SCENE COMPOSER</span><h2>Scene Composer</h2><p>Build a scene, organize layers and frame the 3D camera.</p></div><span className="keyframe-count">{sceneLayers.length} LAYERS</span></div>
@@ -1204,19 +1214,19 @@ export default function App() {
             <button type="button" className="button primary" onClick={addSceneLayer} disabled={exporting}>＋ ADD LAYER</button>
           </div>
           {sceneLayers.length > 0 && <div className="layer-list">{sceneLayers.map(layer => <div className={"layer-row" + (selectedLayerId === layer.id ? " selected" : "")} key={layer.id}><button type="button" className="layer-select" onClick={() => setSelectedLayerId(layer.id)}><i style={{background:layer.color}}/><span><b>{layer.name}</b><small>{layer.kind.toUpperCase()} · {layer.id}</small></span></button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,-1)} disabled={exporting || sceneLayers[0]?.id===layer.id} aria-label="Move layer up">↑</button><button type="button" className="layer-order" onClick={() => moveSceneLayer(layer.id,1)} disabled={exporting || sceneLayers[sceneLayers.length-1]?.id===layer.id} aria-label="Move layer down">↓</button><button type="button" className="layer-duplicate" onClick={() => duplicateSceneLayer(layer.id)} disabled={exporting} aria-label="Duplicate layer">＋</button><button type="button" className="layer-visibility" onClick={() => updateSceneLayer(layer.id,{visible:!layer.visible})} disabled={exporting} aria-label={layer.visible ? "Hide layer" : "Show layer"}>{layer.visible ? "◉" : "○"}</button><button type="button" className="layer-delete" onClick={() => {setSceneLayers(items=>items.filter(item=>item.id!==layer.id));if(selectedLayerId===layer.id)setSelectedLayerId("");}} disabled={exporting} aria-label="Delete layer">×</button></div>)}</div>}
-          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ"] as const).filter(key => layer.kind.endsWith("3d") || key !== "z" && key !== "scaleZ").map(key => <label key={key}>{key.toUpperCase()}<input type="number" step="0.05" value={layer[key]} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}{layer.kind.endsWith("3d") && <button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput([layer.x,layer.y,layer.z]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>USE IN KEYFRAME DIRECTOR</button>}<label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label><div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position uses world units. Add a matching 3D keyframe track to animate this layer." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas."}</div></div>)}
+          {sceneLayers.filter(layer=>layer.id===selectedLayerId).map(layer => <div className="layer-properties" key={layer.id}><div className="layer-properties-title">EDIT SELECTED · {layer.name}</div><div className="layer-property-grid">{(["x","y","z","scaleX","scaleY","scaleZ"] as const).filter(key => layer.kind.endsWith("3d") || key !== "z" && key !== "scaleZ").map(key => <label key={key}>{key.toUpperCase()}<input type="number" step="0.05" value={layer[key]} onChange={e=>updateSceneLayer(layer.id,{[key]:Number(e.target.value)})} disabled={exporting}/></label>)}</div>{layer.kind==="text2d" && <label className="layer-text-edit">TEXT<input value={layer.text||""} onChange={e=>updateSceneLayer(layer.id,{text:e.target.value})} maxLength={80} disabled={exporting}/></label>}<button type="button" className="button secondary layer-keyframe-load" onClick={()=>{setObjectIdInput(layer.id);setTransformInput(layer.kind.endsWith("3d")?[layer.x,layer.y,layer.z]:[layer.x,layer.y,0]);setPropertyInput("position");setStatus("LAYER LOADED INTO KEYFRAME DIRECTOR");}}>ANIMATE THIS LAYER</button><label className="layer-text-edit">COLOR<input type="color" value={layer.color} onChange={e=>updateSceneLayer(layer.id,{color:e.target.value})} disabled={exporting}/></label><div className="keyframe-note">{layer.kind.endsWith("3d") ? "3D position uses world units. Add a matching 3D keyframe track to animate this layer." : "2D X/Y use normalized canvas coordinates (0–1). Size values are relative to the canvas."}</div></div>)}
           <div className="keyframe-note">2D layers render above your script. The top row is drawn last and appears above lower rows. 3D layers join the Three.js scene when your script calls api.render3D. Layer settings autosave and travel with your project.</div>
         </section>
         <section className="keyframe-panel" aria-label="3D animation keyframe editor">
-          <div className="keyframe-heading"><div><span className="section-kicker">05 / ANIMATION DIRECTOR</span><h2>3D Keyframes</h2><p>Animate an object by matching its exact ID in your 3D script.</p></div><span className="keyframe-count">{visualTracks.length} TRACKS</span></div>
-          <label className="keyframe-object">OBJECT ID<input value={objectIdInput} onChange={e => setObjectIdInput(e.target.value)} placeholder="e.g. earth" disabled={exporting} /></label>
+          <div className="keyframe-heading"><div><span className="section-kicker">05 / ANIMATION DIRECTOR</span><h2>Visual Keyframes</h2><p>Animate 2D scene layers or 3D objects with position, rotation and scale tracks.</p></div><span className="keyframe-count">{visualTracks.length} TRACKS</span></div>
+          <label className="keyframe-object">OBJECT ID<input value={objectIdInput} onChange={e => setObjectIdInput(e.target.value)} placeholder="e.g. earth or title-layer" disabled={exporting} /></label>
           <div className="keyframe-controls">
             <label>PROPERTY<select value={propertyInput} disabled={exporting} onChange={e => { const next = e.target.value as VisualTransformProperty; setPropertyInput(next); setTransformInput(next === "scale" ? [1,1,1] : [0,0,0]); }}><option value="position">POSITION</option><option value="rotation">ROTATION (RAD)</option><option value="scale">SCALE</option></select></label>
             {(["X","Y","Z"] as const).map((axis,index) => <label key={axis}>{axis}<input type="number" step="0.1" value={transformInput[index]} disabled={exporting} onChange={e => setTransformInput(current => current.map((v,i) => i === index ? Number(e.target.value) : v) as [number,number,number])} /></label>)}
             <button type="button" className="button primary keyframe-add" onClick={addVisualKeyframe} disabled={exporting}>＋ KEYFRAME AT {elapsed.toFixed(2)}s</button>
           </div>
           {visualTracks.length > 0 && <div className="keyframe-track-list">{visualTracks.map(track => <div className="keyframe-track" key={track.id}><div className="keyframe-track-title"><b>{track.objectId}</b><span>{track.property.toUpperCase()}</span><button type="button" onClick={() => setVisualTracks(items => items.filter(item => item.id !== track.id))} disabled={exporting} aria-label={"Delete " + track.objectId + " " + track.property}>×</button></div><div className="keyframe-points">{track.frames.map(frame => <button type="button" key={frame.time} onClick={() => scrubTo(frame.time)} disabled={exporting}><b>{frame.time.toFixed(2)}s</b><span>{(frame.value as number[]).map((v: number) => Number(v).toFixed(2)).join(" / ")}</span></button>)}</div></div>)}</div>}
-          <div className="keyframe-note">Keyframes interpolate smoothly between timestamps and are applied to 3D position, rotation and scale during both preview and video export. Rotation values use radians. Track values override that object property.</div>
+          <div className="keyframe-note">Keyframes interpolate between timestamps and are applied during preview and export. For 2D layers, position uses normalized X/Y (0–1), scale uses relative width/height, and rotation uses the Z value in radians. For 3D objects, all three axes are supported; rotation values use radians. Track values override the matching property.</div>
         </section>
         <div className="render-settings">
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
@@ -1238,6 +1248,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.26.0 / SCENE COMPOSER</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.27.0 / VISUAL KEYFRAME DIRECTOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
