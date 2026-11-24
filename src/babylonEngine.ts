@@ -125,7 +125,12 @@ export class BabylonSceneRenderer {
       mesh.scaling.copyFrom(vec(spec.scale,[1,1,1]));
       mesh.isVisible = spec.visible !== false;
       mesh.receiveShadows = shadows && spec.receiveShadow !== false;
-      mesh.material = this.makeMaterial(spec);
+      const nextMaterialKey = JSON.stringify([spec.color,spec.emissive,spec.emissiveIntensity,spec.metalness,spec.roughness,spec.opacity,spec.wireframe,spec.unlit]);
+      if (entry.materialKey !== nextMaterialKey) {
+        mesh.material?.dispose();
+        mesh.material = this.makeMaterial(spec);
+        entry.materialKey = nextMaterialKey;
+      }
       if (shadows && spec.castShadow !== false && this.shadowGenerator) this.shadowGenerator.addShadowCaster(mesh,true);
     }
     for (const [id,entry] of this.meshes) {
@@ -222,7 +227,7 @@ export class BabylonSceneRenderer {
             return;
           }
           for (const imported of result.meshes) {
-            if (imported !== this.scene!.meshes[0] && imported !== entry!.root) imported.parent = entry!.root;
+            if (imported !== entry!.root) imported.parent = entry!.root;
           }
         }).catch(error => console.warn("CODECINEMA Babylon model load failed:",error));
       }
