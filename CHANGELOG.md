@@ -1,12 +1,13 @@
 # CODECINEMA Changelog
 
-## 1.1.0 — Advanced Engine Suite (development candidate)
+## 1.1.0 — Advanced Engine Suite (stable release)
 - Added deterministic 2D character motion and facial-expression drawing helpers.
 - Added keyframed 3D camera path sampling for position, look-at and field of view.
 - Added fixed-step 2D gravity, ground, wall and circle-collision simulation.
 - Added per-clip audio timeline fade/volume envelope calculations.
 - Added frame-count, estimated-size and mobile-safe render planning helpers.
-- Integrated the new helpers into the existing user-script API while preserving the stable 1.0.0 release.
+- Integrated the new helpers into the existing user-script API.
+- Published the advanced engine suite as the stable 1.1.0 release.
 
 ## 1.0.0 — Stable Release
 - Consolidated visual editing, 2D/3D scene composition, animation, audio mixing and local export.
