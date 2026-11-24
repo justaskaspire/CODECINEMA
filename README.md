@@ -130,3 +130,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - 2D position keyframes use normalized canvas coordinates (0–1); 2D scale keyframes use relative width and height; 2D rotation uses the Z value in radians.
 - The same timestamp-based keyframe tracks drive preview and frame-by-frame export, and remain included in local autosave and portable `.cinema.json` projects.
 - Existing script-defined 3D object IDs continue to work with the visual keyframe editor.
+
+
+## Scene Transform & Material Lab (v0.28)
+- Edit 3D layer position, rotation (radians), scale, opacity, metalness, roughness and emissive color/intensity from the visual layer inspector.
+- Edit 2D layer rotation and opacity alongside position and size.
+- Existing projects remain compatible: missing new layer properties are filled with safe defaults when loaded from local storage or imported from older `.cinema.json` files.
+- 3D material controls are applied through the existing Three.js renderer; no new runtime, paid API or external dependency is added.
