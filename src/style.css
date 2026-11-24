@@ -267,3 +267,12 @@ footer{height:38px}
 /* v0.41 — geometry-specific controls */
 .geometry-params{margin-top:9px;padding:9px;border:1px solid #28384d;border-radius:4px;background:#0c1420}
 .geometry-params input{min-width:0}
+
+
+/* v0.42 — quick 3D material presets */
+.material-presets{display:flex;flex-direction:column;gap:7px;margin:8px 0;padding:9px;border:1px solid #344052;border-radius:4px;background:#0c1420}
+.material-presets>span{font:8px 'DM Mono',monospace;color:#8290a4;letter-spacing:.08em}
+.material-presets>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.material-presets button{min-height:34px;border:1px solid #40556e;border-radius:3px;background:#17283a;color:#cfe1f4;font:8px 'DM Mono',monospace}
+.material-presets button:active{border-color:#b5ff6d;color:#b5ff6d}
+@media(max-width:680px){.material-presets button{min-height:40px;font-size:8px}}
