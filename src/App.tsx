@@ -721,10 +721,10 @@ export default function App() {
   const elapsedRef = useRef(0);
   const cancelExportRef = useRef(false);
   const formats: Record<string, [number, number]> = {
-    "16:9": quality === "720p" ? [1280, 720] : [1920, 1080],
-    "9:16": quality === "720p" ? [720, 1280] : [1080, 1920],
-    "1:1": quality === "720p" ? [720, 720] : [1080, 1080],
-    "4:5": quality === "720p" ? [720, 900] : [1080, 1350]
+    "16:9": quality === "540p" ? [960, 540] : quality === "720p" ? [1280, 720] : [1920, 1080],
+    "9:16": quality === "540p" ? [540, 960] : quality === "720p" ? [720, 1280] : [1080, 1920],
+    "1:1": quality === "540p" ? [540, 540] : quality === "720p" ? [720, 720] : [1080, 1080],
+    "4:5": quality === "540p" ? [540, 675] : quality === "720p" ? [720, 900] : [1080, 1350]
   };
   const [width, height] = formats[format];
 
@@ -1274,7 +1274,7 @@ export default function App() {
         </section>
         <div className="render-settings">
           <label>FORMAT <select value={format} disabled={exporting} onChange={e => setFormat(e.target.value)}>{Object.keys(formats).map(item => <option key={item}>{item}</option>)}</select></label>
-          <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p · lighter</option><option value="1080p">1080p · sharper</option></select></label>
+          <label>QUALITY <select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="540p">540p · mobile / fast</option><option value="720p">720p · balanced</option><option value="1080p">1080p · sharper</option></select></label>
           <label>DURATION <select value={duration} disabled={exporting} onChange={e => setDuration(Number(e.target.value))}>{[5,8,10,15,20,30,45,60].map(value => <option key={value} value={value}>{value} seconds</option>)}</select></label>
           <label>FPS <select value={fps} disabled={exporting} onChange={e => setFps(Number(e.target.value))}><option value={24}>24 · cinematic</option><option value={30}>30 · standard</option><option value={60}>60 · smooth</option></select></label>
           <label>CONTAINER <select value={container} disabled={exporting} onChange={e => setContainer(e.target.value as ExportContainer)}><option value="mp4">MP4 · H.264</option><option value="webm">WebM · VP9 / VP8</option></select></label>
