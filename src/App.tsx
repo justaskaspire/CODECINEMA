@@ -1028,6 +1028,22 @@ export default function App() {
     drawFrame(0);
     setStatus("READY");
   };
+  const savePreviewFramePNG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) { setError("Preview canvas is not available."); return; }
+    try {
+      canvas.toBlob(blob => {
+        if (!blob) { setError("The current frame could not be saved as PNG."); return; }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const safeName = (projectName.trim() || "codec-cinema").replace(/[^a-z0-9-_]+/gi,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");
+        link.href = url; link.download = safeName + "-" + elapsedRef.current.toFixed(2) + "s.png";
+        link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 2500);
+        setStatus("FRAME PNG SAVED");
+      }, "image/png");
+    } catch { setError("PNG frame capture is not supported by this browser."); }
+  };
+
   const exportVideo = async () => {
     const canvas = canvasRef.current;
     if (exporting || !canvas) return;
@@ -1272,7 +1288,7 @@ export default function App() {
         </div>
         <div className="transport">
           <button onClick={stop} aria-label={exporting ? "Cancel export" : "Stop"}>{exporting ? "×" : "■"}</button>
-          <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"} disabled={exporting}>{running ? "Ⅱ" : "▶"}</button>
+          <button className="play-control" onClick={running ? pause : play} aria-label={running ? "Pause" : "Play"} disabled={exporting}>{running ? "Ⅱ" : "▶"}</button><button type="button" className="frame-save-button" onClick={savePreviewFramePNG} disabled={exporting}>↓ PNG</button>
           <span>{elapsed.toFixed(2)}s <em>/ {duration.toFixed(1)}s</em></span>
           <input className="scrubber" type="range" min="0" max={duration} step="0.01" value={elapsed} disabled={exporting} onChange={e => { const value = Number(e.target.value); elapsedRef.current = value; setElapsed(value); setRunning(false); drawFrame(value); setStatus("SCRUBBING"); }} />
           <span>{Math.max(0, duration - elapsed).toFixed(1)}s left</span>
@@ -1331,6 +1347,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>0.34.0 / KEYFRAME EASING EDITOR</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>0.35.0 / FRAME CAPTURE & MOBILE POLISH</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
