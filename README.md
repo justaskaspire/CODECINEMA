@@ -184,3 +184,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Save the exact current preview frame as a full-resolution PNG.
 - The filename includes the project name and playhead time.
 - Frame capture uses the local preview canvas and does not require cloud rendering or external services.
+
+
+## 2D Shape Studio (v0.36)
+- Add rounded rectangles, triangles and line layers alongside text, rectangles and circles.
+- New shapes support existing position, scale, rotation, opacity, color, ordering, duplication and motion keyframes.
+- Rounded corners and line caps are drawn procedurally on Canvas 2D for crisp output at each export resolution.
+- Older projects remain compatible; the additional layer types are only present when added by the user.
