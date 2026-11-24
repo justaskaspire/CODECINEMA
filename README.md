@@ -251,3 +251,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - One-tap Mobile Fast (vertical 540p/24 FPS/4 Mbps), Cinematic (16:9 1080p/24 FPS/8 Mbps) and Vertical Social (9:16 720p/30 FPS/6 Mbps) profiles.
 - Profiles configure existing output settings; users can still fine-tune every setting before export.
 - Profiles use the existing local WebCodecs export pipeline and do not upload media.
+
+
+## Timeline Cue Editor (v0.46)
+- Rename scene, visual and audio timeline cues.
+- Edit exact cue times and move cues between tracks.
+- Time edits are clamped to the project duration; the cue list and timeline markers remain sorted.
+- Cue edits are autosaved and included in project files.
