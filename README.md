@@ -218,3 +218,10 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Add Cylinder, Plane and Torus Knot objects to the visual scene-layer creator.
 - New geometry uses the existing Three.js renderer and supports transforms, materials, lights, visibility, layer ordering and keyframes.
 - No new package or external 3D asset is required.
+
+
+## Geometry Parameter Lab (v0.41)
+- Adjust primitive-specific dimensions directly: radius, height, tube thickness, plane width and segment detail.
+- Available controls adapt to the selected 3D geometry type.
+- Geometry parameters are stored with scene layers and used by the existing Three.js renderer in preview and export.
+- Segment detail is bounded to 6–64 to keep mobile rendering practical.
