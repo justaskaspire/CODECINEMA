@@ -199,3 +199,13 @@ footer{height:38px}
 .layer-color-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .layer-property-grid select{width:100%;min-width:0;background:#111722;border:1px solid #293344;color:#dce2eb;padding:9px;font:10px Manrope}
 .layer-property-grid label{min-width:0}
+
+
+/* v0.31 — local audio mixer controls */
+.audio-mixer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%;padding:12px;background:#0e1520;border:1px solid #293344;border-radius:4px}
+.audio-mixer label{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:#8e9caf;font:9px 'DM Mono',monospace}
+.audio-mixer input[type=number]{width:70px;min-width:0;background:#111722;border:1px solid #344052;color:#e5edf7;padding:7px;font:11px 'DM Mono',monospace}
+.audio-mixer input[type=range]{width:85px;accent-color:#b5ff6d}
+.audio-mixer small{color:#64748b;font-size:8px}
+.audio-mixer b{color:#b5ff6d;font-size:9px}
+@media(max-width:680px){.audio-mixer{grid-template-columns:1fr}.audio-mixer label{min-height:32px}}
