@@ -265,3 +265,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Set gradient end color and angle; the original layer color is the gradient start.
 - Gradients render directly on Canvas 2D and remain consistent in preview, PNG frame capture and video export.
 - Gradient settings are stored with scene layers and portable projects.
+
+
+## Shape Outline Studio (v0.48)
+- Add configurable outline color and width to rectangle, rounded rectangle, triangle and circle layers.
+- Outlines are rendered as vector strokes at the output resolution, not raster assets.
+- Shape outlines work with solid and gradient fills and are preserved in project data.
