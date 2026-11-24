@@ -172,3 +172,9 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Templates create normal editable 2D scene layers, not flattened images.
 - Edit text, fonts, colors, opacity, position, size, layer order and motion using the existing visual tools.
 - Templates append to the current project and do not replace existing layers or script code.
+
+
+## Keyframe Easing Editor (v0.34)
+- Change interpolation independently for every visual keyframe: Linear, Smooth, Ease In, Ease Out or Hold.
+- Remove individual keyframes without deleting the entire animation track.
+- Easing choices are saved with the existing project keyframe data and are applied consistently in preview and export.
