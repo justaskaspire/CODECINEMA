@@ -812,8 +812,8 @@ export default function App() {
         const existing = index >= 0 ? next[index] : null;
         const frames: AnimationKeyframe[] = [
           ...(existing?.frames ?? []).filter(frame => frame.time < start - 0.001 || frame.time > end + 0.001),
-          { time: start, value: [...spec.from], ease: "out" },
-          { time: end, value: [...spec.to], ease: "smooth" }
+          { time: start, value: [...spec.from], ease: "out" as const },
+          { time: end, value: [...spec.to], ease: "smooth" as const }
         ].sort((a,b) => a.time - b.time);
         const updated: VisualKeyframeTrack = { id: existing?.id ?? layer.id + "-" + spec.property + "-preset", objectId: layer.id, property: spec.property, frames };
         if (index >= 0) next[index] = updated; else next.push(updated);
