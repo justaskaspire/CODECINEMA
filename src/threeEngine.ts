@@ -146,6 +146,7 @@ export class ThreeSceneRenderer {
           s.type==="directional" ? new THREE.DirectionalLight() : new THREE.PointLight();
         this.scene.add(light); this.lights.set(s.id,light);
       }
+      if (!light) continue;
       light.color.set(s.color ?? "#ffffff");
       light.intensity=Math.max(0,s.intensity ?? 1);
       if (!(light instanceof THREE.AmbientLight)) light.position.set(...(s.position ?? [4,6,5]));
