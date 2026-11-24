@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderExport, type ExportContainer } from "./mediaExport";
-import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec } from "./threeEngine";
+import { ThreeSceneRenderer, type ThreeSceneConfig, type ThreeObjectSpec, type ThreeLightSpec } from "./threeEngine";
 
 const threeSceneRenderer = new ThreeSceneRenderer();
 
