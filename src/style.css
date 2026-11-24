@@ -238,3 +238,12 @@ footer{height:38px}
 
 /* v0.36 — shape studio inspector labels */
 .layer-row small{overflow-wrap:anywhere}
+
+
+/* v0.37 — direct keyframe time and vector editing */
+.keyframe-point{display:flex;flex-direction:column;gap:7px;padding:8px}
+.keyframe-point-top{display:grid;grid-template-columns:minmax(75px,1fr) minmax(82px,.8fr) minmax(90px,.9fr) 26px;align-items:end;gap:6px}
+.keyframe-point-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.keyframe-point-top label,.keyframe-point-values label{display:flex;flex-direction:column;gap:4px;color:#7e8ca0;font:7px 'DM Mono',monospace;min-width:0}
+.keyframe-point-top input,.keyframe-point-values input{width:100%;min-width:0;padding:6px;background:#111b29;border:1px solid #334258;color:#dce6f2;font:10px 'DM Mono',monospace}
+@media(max-width:680px){.keyframe-point-top{grid-template-columns:minmax(64px,1fr) minmax(70px,.7fr) minmax(82px,.9fr) 25px;gap:4px}.keyframe-point-values input{padding:8px 5px}}
