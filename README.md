@@ -231,3 +231,11 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 - Apply Metal, Glass, Matte and Glow material presets to any 3D scene layer.
 - Presets adjust metalness, roughness, opacity and emissive properties.
 - Presets remain fully editable through the existing material controls and are saved with the project.
+
+
+## 3D Particle Director (v0.43)
+- Create editable procedural 3D particle fields with count, color, size, opacity, speed, spread and position controls.
+- Add, hide/show or remove particle systems from the scene.
+- Particle fields merge with script-defined particle specs by ID.
+- Systems autosave locally and are included in portable projects.
+- Visual editor caps each system at 1,200 particles to keep phone workloads controlled; the lower-level script API retains its own renderer limits.
