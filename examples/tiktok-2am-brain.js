@@ -165,7 +165,7 @@ function chaseScene() {
   const run = t - 12;
   const heroX = mix(w*.32, w*.62, (Math.sin(run*2.1)+1)*.5);
   const bob = Math.sin(run*13)*unit*.012;
-  api.character2D(ctx, t, {x:heroX, y:h*.78+bob, scale:unit*.0046, motion:"run", expression:"surprised", color:"#f4f7ff", timeOffset:0});
+  api.character2D(ctx, t, {x:heroX, y:h*.78+bob, scale:1.35, motion:"run", expression:"surprised", color:"#f4f7ff", timeOffset:0});
   memoryMonster(w*.76 + Math.sin(t*5)*unit*.025, h*.60, 1.15+Math.sin(t*8)*.06, 1);
   text("WHY IS IT STILL CHASING ME?!", cx, h*.14, unit*.043, "#ffe0ff", 900);
 }
