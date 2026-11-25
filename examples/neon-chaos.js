@@ -59,6 +59,20 @@ function stickman(x,y,scale=1,motion="idle",expression="neutral",facing=1){
 function flash(power=1){
   ctx.save();ctx.globalAlpha=clamp(power)*.5;ctx.fillStyle="#e8fbff";ctx.fillRect(0,0,w,h);ctx.restore();
 }
+function cameraShake(time,amount=3,speed=24){
+  return {x:Math.sin(time*speed)*amount+Math.sin(time*speed*1.73)*amount*.35,
+          y:Math.cos(time*speed*1.21)*amount+Math.sin(time*speed*2.11)*amount*.3};
+}
+function finishLook(){
+  const g=ctx.createRadialGradient(cx,h*.48,unit*.12,cx,h*.48,unit*.78);
+  g.addColorStop(.55,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,.52)");
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  ctx.save();ctx.globalAlpha=.09;
+  for(let i=0;i<Math.floor(w*h/18000);i++){
+    ctx.fillStyle=rand(i+Math.floor(t*30))>.5?"#fff":"#000";
+    ctx.fillRect(rand(i+Math.floor(t*30)+500)*w,rand(i+Math.floor(t*30)+900)*h,1.5,1.5);
+  }ctx.restore();
+}
 function drawBurst(x,y,p){
   for(let i=0;i<22;i++){
     const a=rand(i+8)*Math.PI*2, d=(.15+rand(i+90)*.9)*unit*p;
@@ -119,16 +133,16 @@ if(t<6){
 // Scene 2 — reality breaks.
 else if(t<13){
   const p=segment(6,7.1);flash(1-p);
-  const shake=api.shake(t-6,3,24);
-  api.camera(ctx,shake.x,shake.y,1.03,0,()=>{
-    skyline();neonGrid();
-    for(let i=0;i<16;i++){
-      const a=rand(i+55)*Math.PI*2, d=(.1+rand(i+90))*unit*segment(6,9);
-      ctx.fillStyle=i%2?"#ff42c8":"#26eaff";ctx.save();ctx.translate(cx+Math.cos(a)*d,h*.52+Math.sin(a)*d);ctx.rotate(t*2+i);
-      ctx.fillRect(-8,-8,16,16);ctx.restore();
-    }
-    stickman(cx+unit*.05,floor-unit*.12,1.15,"run","surprised",-1);
-  });
+  const shake=cameraShake(t-6,3,24);
+  ctx.save();ctx.translate(shake.x,shake.y);ctx.scale(1.03,1.03);
+  skyline();neonGrid();
+  for(let i=0;i<16;i++){
+    const a=rand(i+55)*Math.PI*2, d=(.1+rand(i+90))*unit*segment(6,9);
+    ctx.fillStyle=i%2?"#ff42c8":"#26eaff";ctx.save();ctx.translate(cx+Math.cos(a)*d,h*.52+Math.sin(a)*d);ctx.rotate(t*2+i);
+    ctx.fillRect(-8,-8,16,16);ctx.restore();
+  }
+  stickman(cx+unit*.05,floor-unit*.12,1.15,"run","surprised",-1);
+  ctx.restore();
   text("REALITY.EXE HAS STOPPED",cx,h*.16,unit*.046,"#ff7bd5",segment(7,8));
   drawBurst(cx,h*.55,segment(6,8));
 }
@@ -233,5 +247,4 @@ ctx.fillRect(w*.08,h*.94,w*.84*clamp(audioLevel/1.5),3);ctx.restore();
 ctx.fillStyle="rgba(255,255,255,.55)";ctx.font="12px monospace";ctx.textAlign="left";
 ctx.fillText("NEON CHAOS  /  CODECINEMA",w*.06,h*.975);
 ctx.textAlign="right";ctx.fillText(t.toFixed(2)+"s",w*.94,h*.975);
-api.vignette(ctx,.48);
-api.grain(ctx,t,.025,80);
+finishLook();
