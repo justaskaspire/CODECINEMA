@@ -334,3 +334,14 @@ The default `api.render3D(ctx, t, w, h, config)` backend is now Babylon.js. The 
 - Babylon.js is bundled locally through npm; no runtime CDN, account, paid API or cloud renderer is required.
 
 On mobile, start with 540p/720p, medium quality, modest shadow maps and particle counts. Babylon.js rendering still depends on the browser's WebGL support and available GPU memory.
+
+
+## SVG, GSAP Camera and Web Audio Engines
+
+The `feature/svg-gsap-camera-webaudio` branch adds three focused engine integrations without replacing the existing Canvas 2D, Babylon.js or WebCodecs pipelines:
+
+- **SVG path engine:** `api.svgPath(ctx, pathData, options)` draws SVG path-data strings as crisp vector paths on Canvas 2D. It supports position, scale, rotation, fill, stroke, line width, opacity and fill rules. It is synchronous and deterministic, so it works during preview and frame-by-frame export. This is an SVG path API, not yet a full SVG-file importer or visual character editor.
+- **GSAP camera easing:** the existing `api.cameraPath3D(t, keys, loop?)` now accepts GSAP ease names such as `power2.inOut`, `power3.out` and `sine.inOut`. Camera values are sampled at the exact render timestamp; no wall-clock animation state is used, keeping scrubbing and export deterministic.
+- **Web Audio engine:** local audio decoding and trim/volume/fade buffer processing are moved into `src/audioEngine.ts`, using the browser's Web Audio API. Audio remains local and is passed to the existing Mediabunny export path.
+
+See `examples/svg-gsap-camera.js` for an SVG path + GSAP-eased 3D camera example. GSAP is bundled locally from npm; no CDN or paid API is used.
