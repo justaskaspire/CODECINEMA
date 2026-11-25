@@ -9,6 +9,7 @@ import {
   getFirstEncodableAudioCodec,
   getFirstEncodableVideoCodec,
 } from "mediabunny";
+import { decodeLocalAudio, createAudioEnvelopeBuffer } from "./audioEngine";
 
 export type ExportContainer = "mp4" | "webm";
 
@@ -63,13 +64,9 @@ export async function renderExport(options: ExportOptions): Promise<Blob> {
       throw new Error(`This browser cannot encode audio for ${container.toUpperCase()} export. Try WebM or export without music.`);
     }
     audioCodec = supportedAudioCodec;
-    audioContext = new AudioContext();
-    try {
-      decodedAudio = await audioContext.decodeAudioData(await audioFile.arrayBuffer());
-    } catch {
-      await audioContext.close();
-      throw new Error("The selected audio file could not be decoded by this browser.");
-    }
+    const decoded = await decodeLocalAudio(audioFile);
+    audioContext = decoded.context;
+    decodedAudio = decoded.buffer;
   }
 
   const target = new BufferTarget();
@@ -97,25 +94,14 @@ export async function renderExport(options: ExportOptions): Promise<Blob> {
     started = true;
 
     if (decodedAudio && audioSource) {
-      const sampleRate = decodedAudio.sampleRate;
-      const startFrame = Math.max(0, Math.min(decodedAudio.length, Math.floor(Math.max(0,audioStartSeconds) * sampleRate)));
-      const requestedEnd = audioEndSeconds > 0 ? Math.floor(audioEndSeconds * sampleRate) : decodedAudio.length;
-      const endFrame = Math.max(startFrame, Math.min(decodedAudio.length, requestedEnd));
-      const frameCount = Math.min(endFrame - startFrame, Math.ceil(duration * sampleRate));
-      if (frameCount <= 0) throw new Error("Audio trim range is empty. Set TRIM OUT after TRIM IN.");
-      const clipped = audioContext!.createBuffer(decodedAudio.numberOfChannels, frameCount, sampleRate);
-      const fadeInFrames = Math.max(0, Math.floor(Math.max(0,audioFadeInSeconds) * sampleRate));
-      const fadeOutFrames = Math.max(0, Math.floor(Math.max(0,audioFadeOutSeconds) * sampleRate));
-      const volume = Math.max(0, Math.min(1.5, audioVolume));
-      for (let channel = 0; channel < decodedAudio.numberOfChannels; channel++) {
-        const source = decodedAudio.getChannelData(channel).subarray(startFrame, startFrame + frameCount);
-        const outputChannel = clipped.getChannelData(channel);
-        for (let i = 0; i < frameCount; i++) {
-          const fadeIn = fadeInFrames > 0 ? Math.min(1, i / fadeInFrames) : 1;
-          const fadeOut = fadeOutFrames > 0 ? Math.min(1, (frameCount - 1 - i) / fadeOutFrames) : 1;
-          outputChannel[i] = source[i] * volume * Math.max(0, Math.min(fadeIn, fadeOut));
-        }
-      }
+      const clipped = createAudioEnvelopeBuffer(audioContext!, decodedAudio, {
+        startSeconds: audioStartSeconds,
+        endSeconds: audioEndSeconds,
+        durationSeconds: duration,
+        volume: audioVolume,
+        fadeInSeconds: audioFadeInSeconds,
+        fadeOutSeconds: audioFadeOutSeconds,
+      });
       await audioSource.add(clipped);
       audioSource.close();
     }
