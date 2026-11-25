@@ -1249,7 +1249,7 @@ export default function App() {
 
   return <main className="studio">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small></div>
+      <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small><span className="brand-version">v{packageJson.version} · STABLE</span></div>
       <div className="top-status"><i /> DUAL 2D / 3D RENDER ENGINE <span>/</span> {status}</div>
       <div className="top-actions">
         <input ref={projectInputRef} hidden type="file" accept=".json,application/json" onChange={e => { void openProject(e.target.files?.[0]); e.currentTarget.value = ""; }} />
@@ -1432,6 +1432,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>{packageJson.version} / STABLE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA</span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
