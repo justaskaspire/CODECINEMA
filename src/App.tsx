@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import packageJson from "../package.json";
 import { renderExport, type ExportContainer } from "./mediaExport";
 import { createAdvancedApi } from "./advancedEngines";
 import { BabylonSceneRenderer } from "./babylonEngine";
@@ -1431,6 +1432,6 @@ export default function App() {
       <button type="button" onClick={saveProject}>↓ SAVE</button>
       <button type="button" onClick={() => setMobileTab("preview")}>▣ VIEW</button>
     </nav>
-    <footer><span>CODECINEMA <b>1.1.0 / RELEASE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
+    <footer><span>CODECINEMA <b>{packageJson.version} / STABLE</b></span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
 }
