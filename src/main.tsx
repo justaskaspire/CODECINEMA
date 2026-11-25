@@ -4,6 +4,14 @@ import App from "./App";
 import StickmanStudio from "./StickmanStudio";
 import "./style.css";
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch((error) => {
+      console.warn("CODECINEMA offline support could not start:", error);
+    });
+  });
+}
+
 function Root() {
   const [stickman, setStickman] = useState(() => new URLSearchParams(window.location.search).get("mode") === "stickman");
   const open = () => { const url = new URL(window.location.href); url.searchParams.set("mode", "stickman"); window.history.pushState({}, "", url); setStickman(true); };
