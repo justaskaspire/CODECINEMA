@@ -107,7 +107,6 @@ footer{height:38px}
 .timeline-lane-track{height:42px;position:relative;overflow:hidden;border:1px solid #26374b;border-radius:5px;background:repeating-linear-gradient(90deg,#111c2a 0,#111c2a calc(16.666% - 1px),#263448 16.666%,#111c2a calc(16.666% + 1px))}
 .timeline-marker{position:absolute;top:7px;z-index:2;transform:translateX(-2px);max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 7px 5px 13px;border:1px solid #54763b;border-radius:4px;background:#1b2d20;color:#caff9d;font:8px 'DM Mono',monospace;cursor:pointer}
 .timeline-marker i{position:absolute;left:5px;top:50%;width:4px;height:4px;transform:translateY(-50%);border-radius:50%;background:currentColor}
-.marker-visual{border-color:#3e6b8c;background:#14283a;color:#9cdbff}.marker-audio{border-color:#79518c;background:#291d35;color:#e0b7ff}
 .timeline-playhead{position:absolute;top:0;bottom:0;width:2px;z-index:3;background:#b5ff6d;box-shadow:0 0 8px #b5ff6d;pointer-events:none}
 .timeline-cue-list{display:flex;flex-direction:column;gap:5px;margin-top:12px}
 .timeline-cue{display:flex;align-items:center;gap:6px}

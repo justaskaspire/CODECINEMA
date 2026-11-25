@@ -3,6 +3,8 @@ name: CODECINEMA build check
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [feature/stickman-studio]
   workflow_dispatch:
 
 permissions:
