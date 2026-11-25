@@ -379,7 +379,7 @@ const api = {
     const lights = [...(config.lights ?? []).filter(light => !editorLights.some(editorLight => editorLight.id === light.id)), ...editorLights];
     const editorParticles: ThreeParticleSpec[] = activeSceneParticles.filter(particle => particle.visible).map(particle => ({ id: particle.id, count: particle.count, color: particle.color, size: particle.size, opacity: particle.opacity, spread: [particle.spreadX,particle.spreadY,particle.spreadZ], speed: particle.speed, position: [particle.x,particle.y,particle.z] }));
     const particles = [...(config.particles ?? []).filter(particle => !editorParticles.some(editorParticle => editorParticle.id === particle.id)), ...editorParticles];
-    babylonSceneRenderer.render(ctx,time,width,height,{ ...config, camera: { ...(config.camera ?? {}), position: activeSceneCamera.position, lookAt: activeSceneCamera.lookAt, fov: activeSceneCamera.fov }, objects, lights, particles });
+    babylonSceneRenderer.render(ctx,time,width,height,{ ...config, camera: config.camera ?? { position: activeSceneCamera.position, lookAt: activeSceneCamera.lookAt, fov: activeSceneCamera.fov }, objects, lights, particles });
   },
   // Keyframe tracks return a number or vector at any exact timeline time.
   track: (time: number, frames: AnimationKeyframe[], easing: "linear" | "smooth" | "in" | "out" = "smooth") => sampleAnimationTrack(time, frames, easing),

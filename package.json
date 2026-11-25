@@ -14,7 +14,8 @@
     "mediabunny": "^1.66.2",
     "three": "^0.180.0",
     "@babylonjs/core": "^9.37.1",
-    "@babylonjs/loaders": "^9.37.1"
+    "@babylonjs/loaders": "^9.37.1",
+    "gsap": "^3.15.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

@@ -1,3 +1,6 @@
+import { gsap } from "gsap";
+import { drawSvgPath } from "./svgEngine";
+
 /**
  * CODECINEMA Advanced Engine Suite
  * Deterministic helpers designed to work at any preview/export frame time.
@@ -15,7 +18,7 @@ export type CharacterOptions = {
 export type CameraKey = {
   time: number; position: [number, number, number];
   lookAt: [number, number, number]; fov?: number;
-  ease?: "linear" | "smooth" | "in" | "out";
+  ease?: string;
 };
 export type PhysicsBody = {
   id: string; x: number; y: number; radius?: number; mass?: number;
@@ -92,7 +95,9 @@ export function sampleCameraPath(time: number, keys: CameraKey[], loop = false) 
   let a=ordered[0],b=ordered[1];
   for(let i=0;i<ordered.length-1;i++) if(t>=ordered[i].time&&t<=ordered[i+1].time){a=ordered[i];b=ordered[i+1];break;}
   const raw=clamp((t-a.time)/Math.max(.0001,b.time-a.time),0,1);
-  const p=a.ease==="linear"?raw:a.ease==="in"?raw*raw:a.ease==="out"?1-(1-raw)*(1-raw):smooth(raw);
+  const easeName = a.ease === "smooth" || !a.ease ? "power1.inOut" : a.ease;
+  const easeFunction = gsap.parseEase(easeName);
+  const p = easeFunction ? clamp(easeFunction(raw), 0, 1) : smooth(raw);
   return {
     position:a.position.map((v,i)=>mix(v,b.position[i]??v,p)) as [number,number,number],
     lookAt:a.lookAt.map((v,i)=>mix(v,b.lookAt[i]??v,p)) as [number,number,number],
@@ -150,6 +155,7 @@ export function getRenderPlan(duration: number, fps: number, bitrateMbps: number
 export function createAdvancedApi() {
   return {
     character2D: drawCharacter2D,
+    svgPath: drawSvgPath,
     cameraPath3D: sampleCameraPath,
     physics2D: simulatePhysics2D,
     audioTimeline: sampleAudioTimeline,
