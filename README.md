@@ -120,7 +120,7 @@ See [examples/3d-animation-director.js](examples/3d-animation-director.js) for a
 
 
 ## Visual Scene Composer (v0.26)
-- Global 3D camera controls for camera position, look-at target and field of view. These controls override camera values supplied by scripts whenever `api.render3D` is called.
+- Global 3D camera controls for camera position, look-at target and field of view. They provide the default camera when a script does not pass `config.camera`; an explicit script camera (including `api.cameraPath3D`) takes precedence.
 - Reorder layers with up/down controls; 2D overlays draw in list order, with later rows composited above earlier rows.
 - Duplicate existing 2D or 3D layers while preserving their editable properties and creating a unique object ID.
 - Send a selected 3D layer directly to the keyframe director with its current position prefilled.
