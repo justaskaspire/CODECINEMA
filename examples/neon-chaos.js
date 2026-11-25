@@ -95,7 +95,7 @@ const objects=[
   {id:"flying-car-b",type:"box",size:[1.25,.35,.7],position:[Math.cos(t*1.3)*5,1+Math.sin(t*2.4),-2],rotation:[0,-t*.6,Math.cos(t*2)*.2],color:"#ff3dbb",emissive:"#bd168d",emissiveIntensity:.8,metalness:.5},
   {id:"chaos-knot",type:"torusKnot",radius:.55,tube:.12,position:[Math.sin(t)*2,2+Math.cos(t*1.5),-1],rotation:[t,t*.8,0],color:"#c4b5fd",emissive:"#9333ea",emissiveIntensity:1.2}
 ];
-api.render3D(ctx,t,w,h,{
+const renderScene3D = () => api.render3D(ctx,t,w,h,{
   quality:"medium",
   camera:cam,
   lights:[
@@ -189,6 +189,30 @@ else {
   if(t>47.5){const q=segment(47.5,49);flash(q*.65);text("CLICK.",cx,h*.48,unit*.13,"#ff4b8b",q);}
 }
 
+// Render the transparent 3D pass after the 2D backgrounds, then restore foreground actors/titles.
+renderScene3D();
+if(t<6){
+  button2D(.5+.5*Math.sin(t*4));
+  stickman(cx-unit*.22,floor,1.05,"idle",t>3.8?"surprised":"neutral",1);
+  text("DON'T PRESS IT",cx,h*.18,unit*.075,"#fff",segment(0,1.4));
+}else if(t<13){
+  stickman(cx+unit*.05,floor-unit*.12,1.15,"run","surprised",-1);
+  text("REALITY.EXE HAS STOPPED",cx,h*.16,unit*.046,"#ff7bd5",segment(7,8));
+}else if(t<22){
+  stickman(mix(-unit*.2,unit*1.2,segment(13,22)),floor-unit*.12,1.12,"run","happy",1);
+  text("RUN!!!",cx,h*.16,unit*.08,"#a9f6ff",1);
+}else if(t<32){
+  stickman(cx,h*.74,1.05,"run","surprised",1);
+  text("GRAVITY? NEVER HEARD OF IT.",cx,h*.13,unit*.042,"#fff",1);
+}else if(t<42){
+  stickman(cx,h*.73,1.2,"idle","surprised",1);
+  text("WELCOME TO THE GLITCHVERSE",cx,h*.14,unit*.045,"#e8d5ff",segment(32,42));
+}else{
+  button2D(.5+.5*Math.sin(t*5));
+  stickman(cx-unit*.2,floor,1.05,"walk","happy",1);
+  text("WOULD YOU DO IT AGAIN?",cx,h*.17,unit*.055,"#fff",segment(42,50));
+}
+ 
 // SVG lightning accent and cinematic finish.
 if(t>6&&t<13){
   api.svgPath(ctx,"M 0 -34 L -12 -2 L 1 -2 L -8 34 L 18 -8 L 5 -8 L 14 -34 Z",{
