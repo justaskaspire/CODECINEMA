@@ -1447,6 +1447,7 @@ export default function App() {
           <span className="cc-brand-word">CODE<span>CINEMA</span></span>
         </a>
         <div className="cc-header-right">
+          <span className="cc-version">v{packageJson.version}</span>
           <span className={`cc-status ${exporting ? "is-rendering" : error ? "has-error" : ""}`}><i />{exporting ? `EXPORTING ${Math.round(renderProgress * 100)}%` : error ? "CODE ERROR" : status}</span>
           <button className="cc-export" type="button" onClick={() => void exportVideo()} disabled={exporting}>
             {exporting ? "Rendering…" : "Export video"} <span aria-hidden="true">↗</span>
@@ -1504,11 +1505,6 @@ export default function App() {
           </div>
           <div className="cc-preview-stage" style={{ aspectRatio: `${width} / ${height}` }}>
             <canvas ref={canvasRef} />
-            <div className="cc-preview-overlay">
-              <button type="button" className="cc-play" onClick={running ? pause : play} disabled={exporting} aria-label={running ? "Pause preview" : "Play preview"}>{running ? "Ⅱ" : "▶"}</button>
-              <span>{elapsed.toFixed(1)}s <i>/</i> {duration}s</span>
-              <span className="cc-live-dot">{running ? "PLAYING" : "PREVIEW"}</span>
-            </div>
           </div>
           <div className="cc-export-settings">
             <label><span>QUALITY</span><select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p</option><option value="1080p">1080p</option><option value="540p">540p</option></select></label>
@@ -1519,7 +1515,7 @@ export default function App() {
           <div className="cc-preview-foot"><span><i /> {webCodecsAvailable ? "Local rendering ready" : "Checking browser encoder"}</span><span>{Math.ceil(duration * fps).toLocaleString()} frames</span></div>
         </section>
       </div>
-      <footer className="cc-footer"><span>CODECINEMA <b>·</b> CODE IN. VIDEO OUT.</span><span>BUILT FOR MOTION.</span></footer>
+      <footer className="cc-footer"><span>CODECINEMA <b>·</b> CODE IN. VIDEO OUT.</span><span>v{packageJson.version} <b>·</b> BUILT FOR MOTION.</span></footer>
     </main>
   );
 }
