@@ -1017,7 +1017,8 @@ export default function App() {
       setElapsed(0);
       elapsedRef.current = 0;
       drawFrame(0);
-      setStatus("SCRIPT COMPILED");
+      setRunning(true);
+      setStatus("PREVIEW PLAYING");
     } catch (e) {
       setError(scriptError(e));
       setStatus("COMPILE ERROR");
@@ -1249,7 +1250,7 @@ export default function App() {
     setStatus("SCRIPT LOADED — PRESS RUN");
   };
 
-  return <main className="studio">
+  const legacyUi = <main className="studio">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">C</span><span>CODE<span className="brand-light">CINEMA</span></span><small>CODE STUDIO / 001</small><span className="brand-version">v{packageJson.version} · STABLE</span></div>
       <div className="top-status"><i /> DUAL 2D / 3D RENDER ENGINE <span>/</span> {status}</div>
@@ -1436,4 +1437,89 @@ export default function App() {
     </nav>
     <footer><span>CODECINEMA</span><span>TAP RUN · PREVIEW · EXPORT</span></footer>
   </main>;
+  void legacyUi;
+
+  return (
+    <main className="cc-app">
+      <header className="cc-header">
+        <a className="cc-brand" href="#" aria-label="CODECINEMA home">
+          <span className="cc-brand-mark">C</span>
+          <span className="cc-brand-word">CODE<span>CINEMA</span></span>
+        </a>
+        <div className="cc-header-right">
+          <span className={`cc-status ${exporting ? "is-rendering" : error ? "has-error" : ""}`}><i />{exporting ? `EXPORTING ${Math.round(renderProgress * 100)}%` : error ? "CODE ERROR" : status}</span>
+          <button className="cc-export" type="button" onClick={() => void exportVideo()} disabled={exporting}>
+            {exporting ? "Rendering…" : "Export video"} <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+      </header>
+
+      <div className="cc-workspace">
+        <section className="cc-card cc-editor-card">
+          <div className="cc-card-heading">
+            <div><span className="cc-eyebrow">01 / SOURCE</span><h1>Code editor</h1></div>
+            <span className="cc-language">JAVASCRIPT</span>
+          </div>
+          <div className="cc-editor-wrap">
+            <div className="cc-editor-gutter" aria-hidden="true">JS</div>
+            <textarea
+              ref={editorRef}
+              className="cc-code"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              value={code}
+              onChange={e => changeCode(e.target.value)}
+              onKeyDown={e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  runCode();
+                  return;
+                }
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  const el = e.currentTarget, from = el.selectionStart, to = el.selectionEnd;
+                  setCode(value => value.slice(0, from) + "  " + value.slice(to));
+                  requestAnimationFrame(() => el.setSelectionRange(from + 2, from + 2));
+                }
+              }}
+              aria-label="JavaScript animation code"
+              placeholder="// Your animation code goes here…"
+            />
+          </div>
+          {error && <div className="cc-error" role="alert">{error}</div>}
+          <div className="cc-editor-footer">
+            <span>TIME-BASED RENDERING <b>·</b> AUTO-SAVED</span>
+            <button type="button" className="cc-run" onClick={() => runCode()} disabled={exporting}>
+              <span aria-hidden="true">▶</span> Run preview
+            </button>
+          </div>
+        </section>
+
+        <section className="cc-card cc-preview-card">
+          <div className="cc-card-heading cc-preview-heading">
+            <div><span className="cc-eyebrow">02 / OUTPUT</span><h2>Preview</h2></div>
+            <span className="cc-dimensions">{width} × {height}</span>
+          </div>
+          <div className="cc-preview-stage" style={{ aspectRatio: `${width} / ${height}` }}>
+            <canvas ref={canvasRef} />
+            <div className="cc-preview-overlay">
+              <button type="button" className="cc-play" onClick={running ? pause : play} disabled={exporting} aria-label={running ? "Pause preview" : "Play preview"}>{running ? "Ⅱ" : "▶"}</button>
+              <span>{elapsed.toFixed(1)}s <i>/</i> {duration}s</span>
+              <span className="cc-live-dot">{running ? "PLAYING" : "PREVIEW"}</span>
+            </div>
+          </div>
+          <div className="cc-export-settings">
+            <label><span>QUALITY</span><select value={quality} disabled={exporting} onChange={e => setQuality(e.target.value)}><option value="720p">720p</option><option value="1080p">1080p</option><option value="540p">540p</option></select></label>
+            <label><span>FRAME RATE</span><select value={fps} disabled={exporting} onChange={e => setFps(Number(e.target.value))}><option value={24}>24 FPS</option><option value={30}>30 FPS</option><option value={60}>60 FPS</option></select></label>
+            <label><span>FORMAT</span><select value={container} disabled={exporting} onChange={e => setContainer(e.target.value as ExportContainer)}><option value="mp4">MP4</option><option value="webm">WebM</option></select></label>
+          </div>
+          {exporting && <div className="cc-progress" role="progressbar" aria-valuenow={Math.round(renderProgress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{width:`${renderProgress * 100}%`}} /></div>}
+          <div className="cc-preview-foot"><span><i /> {webCodecsAvailable ? "Local rendering ready" : "Checking browser encoder"}</span><span>{Math.ceil(duration * fps).toLocaleString()} frames</span></div>
+        </section>
+      </div>
+      <footer className="cc-footer"><span>CODECINEMA <b>·</b> CODE IN. VIDEO OUT.</span><span>BUILT FOR MOTION.</span></footer>
+    </main>
+  );
 }
