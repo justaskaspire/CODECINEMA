@@ -1,0 +1,69 @@
+{
+  "name": "NEON PULSE",
+  "version": "1.0.0",
+  "durationSeconds": 10,
+  "fps": 24,
+  "width": 540,
+  "height": 960,
+  "aspectRatio": "9:16",
+  "background": {
+    "top": "#070b1c",
+    "bottom": "#190a2c"
+  },
+  "palette": {
+    "cyan": "#20e7ff",
+    "magenta": "#ff3fc8",
+    "violet": "#9b5cff",
+    "white": "#f5fbff"
+  },
+  "scenes": [
+    {
+      "start": 0,
+      "end": 2,
+      "name": "Signal",
+      "description": "A cyan circular pulse appears at center, expands twice, and a title fades/slides upward."
+    },
+    {
+      "start": 2,
+      "end": 5,
+      "name": "Orbit",
+      "description": "Three neon rings orbit a glowing central sphere; a small magenta particle travels around the rings."
+    },
+    {
+      "start": 5,
+      "end": 8,
+      "name": "Burst",
+      "description": "The rings accelerate, then emit a radial burst of 48 small particles; camera/whole-composition shake peaks briefly at 5.8 seconds and settles by 6.5 seconds."
+    },
+    {
+      "start": 8,
+      "end": 10,
+      "name": "Resolve",
+      "description": "Particles fade, the sphere remains, and the title 'NEON PULSE' plus subtitle 'ONE SCENE. FOUR WORKFLOWS.' resolve cleanly."
+    }
+  ],
+  "typography": {
+    "title": "NEON PULSE",
+    "subtitle": "ONE SCENE. FOUR WORKFLOWS.",
+    "fontFamily": "Arial or equivalent sans-serif",
+    "weight": 900,
+    "alignment": "center"
+  },
+  "motion": {
+    "deterministic": true,
+    "seed": 2401,
+    "easing": "smooth ease-in-out",
+    "no_randomness_between_renders": true
+  },
+  "output": {
+    "videoCodec": "H.264 preferred; record actual codec",
+    "container": "MP4 preferred",
+    "audio": "No audio in baseline render; audio capability tested separately"
+  },
+  "constraints": [
+    "Procedural vector/shape visuals only",
+    "No external images, fonts, stock assets or paid APIs",
+    "Identical timing and composition across renderers",
+    "Render each candidate twice to check reproducibility"
+  ]
+}
